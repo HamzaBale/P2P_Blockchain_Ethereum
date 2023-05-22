@@ -7,6 +7,7 @@ contract Battleship {
         address first;
         address second;
         uint amount;
+        address amountRequester;//used to don't allow a user to commit an amount and accept it all by himself.
         uint tempAmount;
         string merkle_first;
         string merkle_second;
@@ -17,6 +18,8 @@ contract Battleship {
   event AmountToSpend(uint indexed _gameId,uint _amount);
   //event for the amount that the game will have
   event AmountDecided(uint indexed _gameId,uint _amount);
+  //event for outputting an uint value
+  event UintOutput(address indexed _from,uint _value);
 
   //Array of games
   Game[] public listOfGames;
@@ -25,12 +28,12 @@ contract Battleship {
   constructor() {
   }
 
-  function CreateGame() public returns (uint) { //Game Creation, creates a game with only the first player saved.
-    listOfGames.push(Game(msg.sender,address(0),0,0,"",""));
+  function CreateGame() public{ //Game Creation, creates a game with only the first player saved.
+    listOfGames.push(Game(msg.sender,address(0),0,address(0),0,"",""));
     openGames++;
-    return listOfGames.length - 1; 
+    emit UintOutput(msg.sender,listOfGames.length - 1); 
   }
-  function JoinGame(bool _isRand,uint _gameIndex) public returns (uint){//Join a game.
+  function JoinGame(bool _isRand,uint _gameIndex) public{//Join a game.
     if(openGames <= 0) revert("No open games");
     
     bool found = false;
@@ -38,8 +41,9 @@ contract Battleship {
     if(!_isRand) { //can be joined specifically by passing a game id.
       require(_gameIndex < listOfGames.length);
       returnIndex = _gameIndex;
-      if(listOfGames[_gameIndex].second != address(0)) revert("Game is not Free");
-      listOfGames[(_gameIndex)].second = msg.sender;
+      if(listOfGames[returnIndex].first == msg.sender) revert("User can't access his own game!");
+      if(listOfGames[returnIndex].second != address(0)) revert("Game is not Free");
+      listOfGames[(returnIndex)].second = msg.sender;
       openGames--;
       found = true;
     }
@@ -60,29 +64,30 @@ contract Battleship {
       }
     }
 
-    if(found) {
-      emit GameStarted(listOfGames[returnIndex].first,listOfGames[returnIndex].second,returnIndex);
-      }
-
+    if(found) emit GameStarted(listOfGames[returnIndex].first,listOfGames[returnIndex].second,returnIndex);
+      
     if(!found) revert("Not able to find an open game");
-    return returnIndex;
   }
 
-  function amountCommit(uint _gameId,uint _amount) public{
+  function AmountCommit(uint _gameId,uint _amount) public{
     require(_amount > 0 && _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0));
     require(listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     if(listOfGames[_gameId].amount != 0) revert("The amount for this game has already been decided");
     listOfGames[_gameId].tempAmount = _amount;
+    listOfGames[_gameId].amountRequester = msg.sender;
     emit AmountToSpend(_gameId, _amount);
   }
-  function acceptedAmount(uint _gameId) public {
+  function AcceptedAmount(uint _gameId) public {
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition);
+    require(listOfGames[_gameId].amountRequester != address(0) && listOfGames[_gameId].amountRequester != msg.sender);
     if(listOfGames[_gameId].amount != 0) revert("The amount for this game has already been decided!");
     if(listOfGames[_gameId].tempAmount == 0) revert("The amount for this game wasn't decided yet!");
     listOfGames[_gameId].amount = listOfGames[_gameId].tempAmount;
     emit AmountDecided(_gameId,listOfGames[_gameId].amount);
   }
+
+  //TO DO START GAME, CONTROLLO CHE AMOUNT è STATO DECISO
 
 
   function randGenerator() private view returns (bytes32){

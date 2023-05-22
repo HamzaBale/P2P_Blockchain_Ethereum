@@ -1,7 +1,7 @@
 App = {
   web3Provider: null,
   contracts: {},
-
+  
   init: async function() {
     // Load pets.
     $.getJSON('../pets.json', function(data) {
@@ -28,6 +28,7 @@ App = {
       App.web3Provider = window.ethereum;
       try {
       await window.ethereum.enable(); // Request account access
+      
       } catch(error) {
       console.error("User denied account access"); // User was denied account access
       }
@@ -39,29 +40,59 @@ App = {
       App.web3Provider = new Web3.provider.HttpProvider("http://localhost:7545");
       }
       web3 = new Web3(App.web3Provider);
+      console.log(web3.eth.accounts);
+      web3.eth.defaultAccount = web3.eth.accounts[0];
       return App.initContract();
   },
 
   initContract: function() {
-    $.getJSON("Adoption.json", function(data) {
-    var AdoptionArtifact = data; // Get the contract artifact and  initialize it
-    App.contracts.Adoption = TruffleContract(AdoptionArtifact);
+    $.getJSON("Battleship.json", function(data) {
+    var BattleshipArtifact = data; // Get the contract artifact and  initialize it
+    App.contracts.Battleship = TruffleContract(BattleshipArtifact);
     // Set the web3.js provider for our contract to the provider defined in the previous function
-    App.contracts.Adoption.setProvider(App.web3Provider);
+    App.contracts.Battleship.setProvider(App.web3Provider);
     // Use the contract to retrieve and mark the adopted pets
-    return App.markAdopted();
+    //return App.initBoard();
     });
     return App.bindEvents();
     },
 
   bindEvents: function() {
     $(document).on('click', '.btn-adopt', App.handleAdopt);
+    $(document).on('click', '#CreateGameBtn', App.CreateGame);
+    $(document).on('click', '#JoinGameIdBtn', App.JoinGameId);
+    
   },
 
-  markAdopted: function() {
-    /*
-     * Replace me...
-     */
+  initBoard: function() {
+    
+  },
+
+  CreateGame: function(){
+
+    App.contracts.Battleship.deployed().then(function (instance) {
+        battleshipInstance = instance;
+         return battleshipInstance.CreateGame();
+        }).then(function (gameId){
+          console.log(gameId);
+          console.log("Game Created");
+        }).catch(function(err) {
+                console.log(err.message);
+              });;
+
+
+
+
+  },
+
+  JoinGameId: function(){
+    var inputValue = $('#GameId').val();
+    if(!inputValue) alert("You must select a game ID!");
+    else{
+      console.log(inputValue);
+      // TODO JOIN GAME BY ID
+    }
+
   },
 
   handleAdopt: function(event) {
@@ -69,10 +100,13 @@ App = {
 
     var petId = parseInt($(event.target).data('id'));
 
+    alert(petId);
     /*
      * Replace me...
      */
   }
+
+  
 
 };
 
@@ -81,3 +115,5 @@ $(function() {
     App.init();
   });
 });
+
+

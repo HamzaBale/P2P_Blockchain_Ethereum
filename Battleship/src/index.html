@@ -5,7 +5,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
-    <title>Pete's Pet Shop</title>
+    <title>Battleship</title>
 
     <!-- Bootstrap -->
     <link href="css/bootstrap.min.css" rel="stylesheet">
@@ -21,14 +21,25 @@
     <div class="container">
       <div class="row">
         <div class="col-xs-12 col-sm-8 col-sm-push-2">
-          <h1 class="text-center">Pete's Pet Shop</h1>
+          <h1 class="text-center">Battleship Game</h1>
           <hr/>
           <br/>
         </div>
       </div>
 
-      <div id="petsRow" class="row">
-        <!-- PETS LOAD HERE -->
+      <div id="CreateGame" class="col">
+        <h4>Click here to create a new game</h4>
+        <input type="submit" id="CreateGameBtn" value="Create Game">
+      </div>
+      <div id="JoinGame" class="col" >
+        <h4>Click here to join a random game</h4>
+        <input type="submit" value="Join">
+      </div>
+
+      <div id="JoinGameId" class="col">
+        <h4>Click here to join a specific game</h4>
+        <input type="number" id="GameId" min="0" placeholder="Insert here the GameId">
+        <input type="submit" value="Join" id="JoinGameIdBtn">
       </div>
     </div>
 
