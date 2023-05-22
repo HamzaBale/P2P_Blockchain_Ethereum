@@ -8,7 +8,8 @@ contract Battleship {
         address second;
         uint amount;
         uint tempAmount;
-        
+        string merkle_first;
+        string merkle_second;
   }
   //event to send when game starts
   event GameStarted(address indexed _first,address indexed _second, uint indexed _gameId);
@@ -25,7 +26,7 @@ contract Battleship {
   }
 
   function CreateGame() public returns (uint) { //Game Creation, creates a game with only the first player saved.
-    listOfGames.push(Game(msg.sender,address(0),0,0));
+    listOfGames.push(Game(msg.sender,address(0),0,0,"",""));
     openGames++;
     return listOfGames.length - 1; 
   }
