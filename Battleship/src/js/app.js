@@ -40,7 +40,6 @@ App = {
       App.web3Provider = new Web3.provider.HttpProvider("http://localhost:7545");
       }
       web3 = new Web3(App.web3Provider);
-      console.log(web3.eth.accounts);
       web3.eth.defaultAccount = web3.eth.accounts[0];
       return App.initContract();
   },
@@ -73,12 +72,22 @@ App = {
     App.contracts.Battleship.deployed().then(function (instance) {
         battleshipInstance = instance;
          return battleshipInstance.CreateGame();
-        }).then(function (gameId){
-          console.log(gameId);
-          console.log("Game Created");
+        }).then(function (reciept){
+          var logsArray = reciept.logs;
+          logsArray.forEach(log => {
+            var gameId = log.args._value.toNumber();
+            console.log(gameId);
+            if(gameId < 0) console.error("Something went wrong, game id is negative!");
+            else {
+              alert("Game Created");
+              $('#GameCreationContainer').hide();
+
+            }
+          });
+          
         }).catch(function(err) {
-                console.log(err.message);
-              });;
+             console.error(err.message);
+          });;
 
 
 
