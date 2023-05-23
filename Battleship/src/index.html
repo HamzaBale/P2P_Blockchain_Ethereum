@@ -19,7 +19,7 @@
   </head>
   <body>
     <div class="container">
-      <div id="GameCreationContainer">
+      
       <div class="row">
         <div class="col-xs-12 col-sm-8 col-sm-push-2">
           <h1 class="text-center">Battleship Game</h1>
@@ -27,14 +27,25 @@
           <br/>
         </div>
       </div>
+      <div id="GameCreationContainer">
+      
+      <div id="CreateGame" class="col">
+          <h4>Amount of ETH to spend in this game</h4>
+          <input required type="number" id="AmountToSend" placeholder="Amount of ETH to spend in this game">
+      </div>
+      <div id="CreateGame" class="col">
+        <h4>Choose the Dimension of the board</h4>
+        <input required type="number" id="BoardDim" placeholder="Board Dimension">
+    </div>
 
       <div id="CreateGame" class="col">
         <h4>Click here to create a new game</h4>
         <input type="submit" id="CreateGameBtn" value="Create Game">
       </div>
+
       <div id="JoinGame" class="col" >
         <h4>Click here to join a random game</h4>
-        <input type="submit" value="Join">
+        <input type="submit" id="JoinRandGameBtn" value="Join">
       </div>
 
       <div id="JoinGameId" class="col">
@@ -43,6 +54,40 @@
         <input type="submit" value="Join" id="JoinGameIdBtn">
       </div>
     </div>
+
+
+
+    <div id="GameBoardContainer" hidden >
+      <h4 id ="CreationGameTitle"></h4>
+      <input type="submit" value="Game creation page" id="GoBackToMainBtn">
+    </div>
+
+
+    <div id="AmountValidation" class="col" hidden>
+      <h4 id ="GameBoardTitle" ></h4>
+      <input type="submit" value="Accept Amount" id="AcceptAmount" style="margin-bottom: 1rem;">
+      <br>
+      <input type="number" id="NewAmount" min="0" placeholder="Insert here the new amount">
+      <input type="submit" value="Send" id="NewAmountBtn">
+    </div>
+
+
+    <!--
+      GAME BOARD
+    -->
+
+    <div id="GameBoard" >
+      <h1>Welcome to the game</h1>
+      <table id="GameTable" style="border: 1px solid black;">
+      </table>
+      <button id="xxx">gagsaas</button>
+    </div>
+
+
+
+
+
+
     </div>
 
     <div id="petTemplate" style="display: none;">
