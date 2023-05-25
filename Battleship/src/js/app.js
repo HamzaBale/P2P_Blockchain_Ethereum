@@ -1,7 +1,10 @@
+
 var gameId = null;
 var gameAmount = null;
 var boardDim = null;
+var shipDim = null;
 App = {
+  
   web3Provider: null,
   contracts: {},
   
@@ -10,6 +13,7 @@ App = {
   },
 
   initWeb3: async function() {//in order to interact between the interface and the contract, it checks where the web3js library is.
+
     if (window.ethereum) {
       App.web3Provider = window.ethereum;
       try {
@@ -40,6 +44,7 @@ App = {
     //return App.initBoard();
     
     });
+
     return App.bindEvents();
     },
 
@@ -60,21 +65,18 @@ App = {
     $(document).on('click', '#NewAmountBtn', App.AmountCommit);
     $(document).on('input', '#NewAmount', () => { gameAmount = $('#NewAmount').val(); AmountCommit()});
 
-
-    $(document).on('click',"#xxx",App.CreateTable);
+    //Insert ship in table
+    $(document).on('click',"#ShipSub",App.AddShip);
+    $(document).on('click',"#ResetBoard",App.ResetBoard);
+    $(document).on('click',"#SubmitBoard",App.SubmitBoard);
+    //Attack Phase
+    $(document).on('click',"#ShipSubAtt",App.SubmitAttack);
     
-    
-
-    $('#CreateGameBtn').prop("disabled", true);
-
   
-    
+    $('#CreateGameBtn').prop("disabled", true);
     
   },
 
-  initBoard: function() {
-    
-  },
   UnlockButtons: function(){
     gameAmount = $('#AmountToSend').val();
     if(gameAmount){
@@ -109,9 +111,6 @@ App = {
         console.log(reciept);
         $('#GameBoard').show();
         $('#AmountValidation').hide();
-        App.CreateTable();
-
-    
       }).catch(function(err) {
         console.log(err);
           throw new Error(err);
@@ -125,11 +124,46 @@ App = {
 
   CreateGame:  function(){
 
+    console.log(gameAmount.toString() + "000000000000000000");
+    return App.contracts.Battleship.deployed().then(function (instance) {
+      battleshipInstance = instance;
+       return battleshipInstance.receiveEther(0,{value: gameAmount.toString() + "000000000000000000"});
+      }).then(function (reciept){
+                  
+        App.contracts.Battleship.deployed().then(function (instance) {
+          battleshipInstance = instance;
+           return battleshipInstance.getList();
+          }).then(function (reciept){
+                      console.log(reciept);          
+          }).catch(function(err) {
+               console.error(err);
+            });
+        
+      }).catch(function(err) {
+           console.error(err);
+        });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     if(!boardDim) return alert("You must choose a board dimension");
 
     App.contracts.Battleship.deployed().then(async function (instance) {
         battleshipInstance = instance;
-
+        console.log(battleshipInstance);
          return battleshipInstance.CreateGame(boardDim);
         }).then(async function (reciept){
           var logsArray = reciept.logs;
@@ -146,40 +180,7 @@ App = {
               $('#GameCreationContainer').hide();
               $('#GameBoardContainer').show();
               $('#CreationGameTitle').text("Welcome to the waiting room, wait until someone joins! Game ID: "+gameId);
-            const PAST_EVENT_DECIDED = async () => {
-              await battleshipInstance.allEvents("AmountDecided",
-                (err, events) => {
-                  var gameIdTemp = events.args._gameId.toNumber();
-                  if(events.event =="AmountDecided" && gameIdTemp == gameId){
-                  gameAmount = events.args._amount.toNumber();
-                    $("#GameBoardContainer").hide();
-                    alert("Game Started!");
-
-                    $("#GameBoard").show();
-                    $("#AmountValidation").hide();
-                    App.CreateTable();
-                  }
-                });
-            };
-            const PAST_EVENT_COMMIT = async () => {
-              await battleshipInstance.allEvents("AmountToCommit",
-                (err, events) => {
-                  var gameIdTemp = events.args._gameId.toNumber();
-                  var fromAccount = events.args._from;
-            
-                  if(events.event =="AmountToSpend" && gameIdTemp == gameId && fromAccount != web3.eth.defaultAccount){
-                  gameAmount = events.args._amount.toNumber();
-                    alert("The new amount is "+ gameAmount);
-                    $("#GameBoardContainer").hide();
-                    $("#AmountValidation").show();
-                    $("#GameBoardTitle").text("Welcome to the game with ID "+gameId+ ", Choose an amount or accept the one that your oppenent advised. The current amount is "+gameAmount);
-                    
-                    resolve('Operation completed.');
-                  }
-                });
-            };
-            PAST_EVENT_DECIDED();
-            PAST_EVENT_COMMIT();
+              App.PAST_EVENTS();
             }
           
           
@@ -207,37 +208,9 @@ App = {
             $('#GameCreationContainer').hide();
             $('#AmountValidation').show();
             $("#GameBoardTitle").text("Welcome to the game with ID "+gameId+" Choose an amount or accept the one that your oppenent advised. The current amount is "+gameAmount);
-            const PAST_EVENT_DECIDED = async () => {
-              await battleshipInstance.allEvents("AmountDecided",
-                (err, events) => {
-                  var gameIdTemp = events.args._gameId.toNumber();
-                  if(events.event =="AmountDecided" && gameIdTemp == gameId){
-                    gameAmount = events.args._amount.toNumber();
-                    $("#AmountValidation").hide();
-                    alert("Game Started!");
-                    $("#GameBoard").show();
-                    resolve('Operation completed.');
-                  }
-                });
-            };
-            const PAST_EVENT_COMMIT = async () => {
-              await battleshipInstance.allEvents("AmountToCommit",
-                (err, events) => {
-                  var gameIdTemp = events.args._gameId.toNumber();
-                  var fromAccount = events.args._from;
-                  if(events.event =="AmountToSpend" && gameIdTemp == gameId && fromAccount != web3.eth.defaultAccount){
-                  gameAmount = events.args._amount.toNumber();
-                  alert("The new amount is "+ gameAmount);
-                    $("#GameBoardContainer").hide();
-                    $("#AmountValidation").show();
-                    $("#GameBoardTitle").text("Welcome to the game with ID "+gameId+ ", Choose an amount or accept the one that your oppenent advised. The current amount is "+gameAmount);
-
-                    resolve('Operation completed.');
-                  }
-                });
-            };
-            PAST_EVENT_DECIDED();
-            PAST_EVENT_COMMIT();
+ 
+            App.PAST_EVENTS();
+       
             
 
           }).catch(function(err) {
@@ -255,11 +228,14 @@ App = {
         console.log(reciept);
         gameId = reciept.logs[0].args._gameId.toNumber();
         gameAmount = reciept.logs[0].args._amountTemp.toNumber();
+        boardDim = reciept.logs[0].args._boardDim.toNumber();
+
         alert("You joined the game, the amount of ETH was set to "+gameAmount);
         
         $('#GameCreationContainer').hide();
         $('#AmountValidation').show();
         $("#GameBoardTitle").text("Welcome to the game number "+gameId+", Choose an amount or accept the one that your oppenent advised. The current amount is "+gameAmount);
+        App.PAST_EVENTS();
         
       }).catch(function(err) {
            console.log(err);
@@ -269,26 +245,59 @@ App = {
   },
 
 
-  CreateTable: function(){
+  CreateTable: async function(){
     var table = document.getElementById("GameTable");
-    var tableArr = [
-  [1, 0, 1],
-  [1, 0, 1],
-  [0, 0, 0]
-  ];
-
-  for(let i = 0; i < tableArr.length; i++){
-    table.insertRow(i);
-    for (let j = 0; j < tableArr[i].length; j++) {
-      const cell = tableArr[i].insertCell(j);
-      cell.textContent = tableArr[i][j];
+  for(let i = 0; i < boardDim; i++){
+   const row = table.insertRow(i);
+    for (let j = 0; j < boardDim; j++) {
+      const cell = row.insertCell(j);
+      cell.textContent = 0;
     }
   }
 
+  
   },
 
+  AddShip: function(){
+    var rowId = $("#ShipRow").val();
+    var colSize = $("#ShipCol").val();
+    if(rowId < 0 || rowId == "") return alert("You must choose a row!");
+    if(colSize < 0 || colSize == "") return alert("You must choose the dimension of the ship!");
+    var table = document.getElementById("GameTable");
+    for(let i = 0; i <= colSize; i++) table.rows[i].cells[rowId].textContent = 1;
 
+  },
+  ResetBoard: function(){
+    var table = document.getElementById("GameTable");
+    for(let i = 0; i < boardDim; i++){
+       for (let j = 0; j < boardDim; j++) {
+        table.rows[i].cells[j].textContent = 0;
+       }
+     }
+  },
+  SubmitBoard: async function(){
+    let merkleroot = await App.CreateMerkleTree();
+    App.contracts.Battleship.deployed().then(function (instance) {
+      battleshipInstance = instance;
+      console.log(merkleroot);
+       return battleshipInstance.SendMerkleRoot(merkleroot,gameId);
+      }).then(function (reciept){
+            alert("Merkle root sent to the contract succefully!");
+            console.log(reciept);
+            $("#WaitOpp").show();
+            App.PAST_EVENTS();
 
+      }).catch(function(err) {
+           console.log(err);
+        })
+  },
+  SubmitAttack:function(){  
+    var rowId = $("#ShipRowAtt").val();
+    var colSize = $("#ShipColAtt").val();
+    if(rowId < 0 || rowId == "") return alert("You must choose a row!");
+    if(colSize < 0 || colSize == "") return alert("You must choose a column!");
+
+  },
   LeaveGame: function(event) {
     event.preventDefault();
     var val = confirm("Are you sure you want to leave the game?");
@@ -311,7 +320,97 @@ App = {
       }
     }
 
+  },
+ PAST_EVENTS : async function() {
+    let lastBlock = null;
+    await battleshipInstance.allEvents("",
+      (err, events) => {
+        console.log(events);
+        if(events.event =="AmountDecided" && events.args._gameId.toNumber() == gameId  && events.blockNumber != lastBlock){
+            
+          gameAmount = events.args._amount.toNumber();
+          App.contracts.Battleship.deployed().then(function (instance) {
+            battleshipInstance = instance;
+             return battleshipInstance.receiveEther(_gameId,{value: web3.utils.toWei(gameAmount.toString(), 'wei')});
+            }).then(function (reciept){
+                        
+          $("#GameBoardContainer").hide();
+          alert("Game Started!");
+          console.log(events);
+          console.log("Game Started 1");
+          $("#GameBoard").show();
+          $("#AmountValidation").hide();
+         console.log("BOARD SIZE: "+boardDim);
+          App.CreateTable();
+              
+            }).catch(function(err) {
+                 console.error(err);
+              });
+         lastBlock = events.blockNumber;
+
+        }else if(events.event =="AmountToSpend" && events.args._gameId.toNumber()  == gameId && events.args._from != web3.eth.defaultAccount){
+        gameAmount = events.args._amount.toNumber();
+          alert("The new amount is "+ gameAmount);
+          $("#GameBoardContainer").hide();
+          $("#AmountValidation").show();
+          $("#GameBoardTitle").text("Welcome to the game with ID "+gameId+ ", Choose an amount or accept the one that your oppenent advised. The current amount is "+gameAmount);
+        } else if(events.event =="GameStarted" && (events.args._first == web3.eth.defaultAccount || events.args._second == web3.eth.defaultAccount)  && events.blockNumber != lastBlock){
+          console.log("CI SONO");
+          $("#WaitOpp").hide();
+          $("#shipAttackDiv").show();
+          $("#ShipDiv").hide();
+          $("#ResetBoard").hide();
+          $("#SubmitBoard").hide();
+         lastBlock = events.blockNumber;
+        } else if(events.event =="AmountToSpend" && events.args._gameId.toNumber()== gameId && events.args._from != web3.eth.defaultAccount){
+        gameAmount = events.args._amount.toNumber();
+        alert("The new amount is "+ gameAmount);
+          $("#GameBoardContainer").hide();
+          $("#AmountValidation").show();
+          $("#GameBoardTitle").text("Welcome to the game with ID "+gameId+ ", Choose an amount or accept the one that your oppenent advised. The current amount is "+gameAmount);
+          resolve('Operation completed.');
+        }
+      });
+  },
+
+  CreateMerkleTree:  async function(){ //Creates merkle tree and returns the root
+    var table = document.getElementById("GameTable");
+    var boardArray = [];
+
+    for(let i = 0; i < boardDim; i++){
+      for (let j = 0; j < boardDim; j++) {
+        boardArray.push((table.rows[i].cells[j].textContent));
+      }
+    }
+    let tempBoard = [];
+    for(let i = 0 ; i < boardArray.length; i++){
+      tempBoard.push(await App.sha256(boardArray[i]));
+    } 
+
+    let tempArray = [];
+    let stop =false
+    while(!stop){
+    tempArray = [];
+    for(let i = 0; i < tempBoard.length; i = i + 2){
+      if(i + 1 < tempBoard.length){
+        tempArray.push(await App.sha256(tempBoard[i] + tempBoard[i+1]));
+      }
+    }
+    console.log(tempArray);
+    tempBoard = tempArray;
+    if(tempArray.length == 1 || tempArray.length == 0) stop = true;
   }
+    return tempArray[0]; //root
+  },
+  sha256:async function(message){
+    const msgBuffer = new TextEncoder('utf-8').encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+   // convert bytes to hex string
+    const hashHex = hashArray.map(b => ('00' + b.toString(16)).slice(-2)).join('');
+    return hashHex;
+  }
+
 };
 
 $(function() {

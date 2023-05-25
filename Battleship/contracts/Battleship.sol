@@ -10,12 +10,13 @@ contract Battleship {
         uint amount;
         address amountRequester;//used to don't allow a user to commit an amount and accept it all by himself.
         uint tempAmount;
-        string merkle_first;
-        string merkle_second;
-
+        string merkleFirst;
+        string merkleSecond;
+        uint ethFirst;
+        uint ethSecond;
   }
   //event to send when game starts
-  event GameStarted(address indexed _first,address indexed _second,uint _amountTemp ,uint indexed _gameId,uint _boardDim);
+  event GameCreated(address indexed _first,address indexed _second,uint _amountTemp ,uint indexed _gameId,uint _boardDim);
   //event to declare the amount of money the game will have, it is used during the decision of how much money to spend in the game
   event AmountToSpend(uint indexed _gameId,uint _amount,address _from);
   //event for the amount that the game will have
@@ -24,6 +25,8 @@ contract Battleship {
   event UintOutput(address indexed _from,uint _value);
   //ErrorOut string
   error ErrorOut(string err);
+  //The game has officially started.
+  event GameStarted(address indexed _first, address indexed _second);
 
   //Array of games
   Game[] public listOfGames;
@@ -33,7 +36,7 @@ contract Battleship {
   }
 
   function CreateGame(uint _boardDim) public{ //Game Creation, creates a game with only the first player saved.
-    listOfGames.push(Game(msg.sender,address(0),_boardDim,0,address(0),0,"",""));
+    listOfGames.push(Game(msg.sender,address(0),_boardDim,0,address(0),0,"","",0,0));
     openGames++;
     emit UintOutput(msg.sender,listOfGames.length - 1); 
   }
@@ -69,7 +72,7 @@ contract Battleship {
       }
     }
 
-    if(found) emit GameStarted(listOfGames[returnIndex].first,listOfGames[returnIndex].second,listOfGames[returnIndex].tempAmount,returnIndex,listOfGames[returnIndex].boardDim);
+    if(found) emit GameCreated(listOfGames[returnIndex].first,listOfGames[returnIndex].second,listOfGames[returnIndex].tempAmount,returnIndex,listOfGames[returnIndex].boardDim);
       
     if(!found)revert ErrorOut({err:"Not able to find an open game"});
   }
@@ -92,6 +95,28 @@ contract Battleship {
     listOfGames[_gameId].amount = listOfGames[_gameId].tempAmount;
     emit AmountDecided(_gameId,listOfGames[_gameId].amount);
   }
+  function receiveEther(uint _gameId) external payable {
+    bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
+    require(condition,"Something went wrong!");
+    require(msg.value > 0,"Eth are 0!");
+    if(listOfGames[_gameId].first == msg.sender) listOfGames[_gameId].ethFirst = msg.value;
+    else listOfGames[_gameId].ethSecond = msg.value;
+    }
+    function getList() public view returns (Game[] memory){
+      return listOfGames;
+    }
+
+  function SendMerkleRoot(string memory _merkleroot, uint _gameId) public{//Done at the start of the game by both players, otherwise the game don't start.
+    bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
+    require(condition,"Something went wrong!");
+    if(listOfGames[_gameId].first == msg.sender) listOfGames[_gameId].merkleFirst = _merkleroot;
+    else listOfGames[_gameId].merkleSecond = _merkleroot;
+    if(checkStringNotEmpty(listOfGames[_gameId].merkleSecond) && checkStringNotEmpty(listOfGames[_gameId].merkleFirst)) emit GameStarted(listOfGames[_gameId].first, listOfGames[_gameId].second);
+  }
+
+   function checkStringNotEmpty(string memory inString) public pure returns (bool) {
+        return bytes(inString).length != 0;
+    }
 
   function LeaveGame(uint _gameId) public { //you can leave the game only if you are the creator and before the game has started.
     require(_gameId < listOfGames.length && listOfGames[_gameId].first == msg.sender && listOfGames[_gameId].second == address(0),"You can't leave the game if you're not the owner!");

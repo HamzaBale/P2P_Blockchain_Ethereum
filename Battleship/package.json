@@ -13,6 +13,13 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "lite-server": "^2.3.0"
+    "crypto": "^1.0.1",
+    "lite-server": "^2.3.0",
+    "merkletreejs": "^0.3.10",
+    "web3-utils": "^1.10.0"
+  },
+  "dependencies": {
+    "crypto": "^1.0.1",
+    "merkletreejs": "^0.3.10"
   }
 }

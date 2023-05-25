@@ -4,4 +4,4 @@ module.exports = function(deployer){
     deployer.deploy(Battleship);//deploys the contract
 };
 
-//Battleship.deployed().then(function(instance) {return instance.CreateGame();});
+//Battleship.deployed().then(function(instance) {return instance.CreateGame(2);});

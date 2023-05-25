@@ -9,7 +9,7 @@
 
     <!-- Bootstrap -->
     <link href="css/bootstrap.min.css" rel="stylesheet">
-
+    <link rel="stylesheet" href="./css/style.css">
     <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
     <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
     <!--[if lt IE 9]>
@@ -76,11 +76,28 @@
       GAME BOARD
     -->
 
-    <div id="GameBoard" >
+    <div id="GameBoard" hidden >
       <h1>Welcome to the game</h1>
-      <table id="GameTable" style="border: 1px solid black;">
+      <div style="margin-bottom: 1rem;" id="ShipDiv">
+      <input type="number" id="ShipRow" placeholder="Choose ship row">
+      <input type="number" id="ShipCol" placeholder="Choose ship dimension">
+      <input type="submit" id="ShipSub" value="Submit">
+      </div>
+      <h1 id="WaitOpp" hidden>Waiting for your oppenent to start!</h1>
+      <div style="margin-bottom: 1rem;" hidden id="shipAttackDiv">
+        <input type="number" id="ShipRowAtt" placeholder="Choose ship row">
+        <input type="number" id="ShipColAtt" placeholder="Choose ship col">
+        <input type="submit" id="ShipSubAtt" value="Attack">
+      </div>
+      <div style="margin-bottom: 1rem;">
+        <input type="submit" id="ResetBoard" value="Reset Board">
+      </div>
+      
+      <table id="GameTable" style="margin-bottom: 1rem;">
       </table>
-      <button id="xxx">gagsaas</button>
+      <input type="submit" id="SubmitBoard" value="Submit Board">
+      
+
     </div>
 
 
