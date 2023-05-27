@@ -25,7 +25,7 @@ var contract = (function(module) {
     return this.provider.sendAsync.apply(this.provider, arguments);
   };
 
-  var BigNumber = (new Web3()).toBigNumber(0).constructor;
+  var BigNumber = (new Web3()).utils.toBN(0).constructor;
 
   var Utils = {
     is_object: function(val) {
@@ -95,7 +95,7 @@ var contract = (function(module) {
 
           // We have BN. Convert it to BigNumber
           if (val.constructor.isBN) {
-            copy.args[key] = C.web3.toBigNumber("0x" + val.toString(16));
+            copy.args[key] = C.web3.utils.toBN("0x" + val.toString(16));
           }
         });
 

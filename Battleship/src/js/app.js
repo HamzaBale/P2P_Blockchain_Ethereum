@@ -2,12 +2,15 @@
 var gameId = null;
 var gameAmount = null;
 var boardDim = null;
-var shipDim = null;
+var board = null;
+var merkleProofMatrix = [];
+var numberOfShips = null;
 App = {
-  
+ 
   web3Provider: null,
   contracts: {},
   
+
   init: async function() {
     return await App.initWeb3();
   },
@@ -123,42 +126,6 @@ App = {
 
 
   CreateGame:  function(){
-
-    console.log(gameAmount.toString() + "000000000000000000");
-    return App.contracts.Battleship.deployed().then(function (instance) {
-      battleshipInstance = instance;
-       return battleshipInstance.receiveEther(0,{value: gameAmount.toString() + "000000000000000000"});
-      }).then(function (reciept){
-                  
-        App.contracts.Battleship.deployed().then(function (instance) {
-          battleshipInstance = instance;
-           return battleshipInstance.getList();
-          }).then(function (reciept){
-                      console.log(reciept);          
-          }).catch(function(err) {
-               console.error(err);
-            });
-        
-      }).catch(function(err) {
-           console.error(err);
-        });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     if(!boardDim) return alert("You must choose a board dimension");
 
     App.contracts.Battleship.deployed().then(async function (instance) {
@@ -203,6 +170,8 @@ App = {
             gameId = inputValue;
             gameAmount = reciept.logs[0].args._amountTemp.toNumber();
             boardDim = reciept.logs[0].args._boardDim.toNumber();
+            numberOfShips = reciept.logs[0].args._numberOfShips.toNumber();
+
             alert("You joined the game, the amount of ETH was set to "+gameAmount);
             
             $('#GameCreationContainer').hide();
@@ -229,7 +198,9 @@ App = {
         gameId = reciept.logs[0].args._gameId.toNumber();
         gameAmount = reciept.logs[0].args._amountTemp.toNumber();
         boardDim = reciept.logs[0].args._boardDim.toNumber();
+        numberOfShips = reciept.logs[0].args._numberOfShips.toNumber();
 
+        
         alert("You joined the game, the amount of ETH was set to "+gameAmount);
         
         $('#GameCreationContainer').hide();
@@ -263,9 +234,10 @@ App = {
     var colSize = $("#ShipCol").val();
     if(rowId < 0 || rowId == "") return alert("You must choose a row!");
     if(colSize < 0 || colSize == "") return alert("You must choose the dimension of the ship!");
+    if((colSize + 1) > numberOfShips)  return alert("Too many ships! Remaining: "+numberOfShips);
     var table = document.getElementById("GameTable");
     for(let i = 0; i <= colSize; i++) table.rows[i].cells[rowId].textContent = 1;
-
+    numberOfShips = numberOfShips - (colSize + 1);
   },
   ResetBoard: function(){
     var table = document.getElementById("GameTable");
@@ -277,6 +249,7 @@ App = {
   },
   SubmitBoard: async function(){
     let merkleroot = await App.CreateMerkleTree();
+    
     App.contracts.Battleship.deployed().then(function (instance) {
       battleshipInstance = instance;
       console.log(merkleroot);
@@ -285,6 +258,10 @@ App = {
             alert("Merkle root sent to the contract succefully!");
             console.log(reciept);
             $("#WaitOpp").show();
+            $("#ShipDiv").hide();
+            $("#ResetBoard").hide();
+            $("#SubmitBoard").hide();
+            board = document.getElementById("GameTable");
             App.PAST_EVENTS();
 
       }).catch(function(err) {
@@ -292,10 +269,22 @@ App = {
         })
   },
   SubmitAttack:function(){  
-    var rowId = $("#ShipRowAtt").val();
-    var colSize = $("#ShipColAtt").val();
-    if(rowId < 0 || rowId == "") return alert("You must choose a row!");
-    if(colSize < 0 || colSize == "") return alert("You must choose a column!");
+    var row = $("#ShipRowAtt").val();
+    var col = $("#ShipColAtt").val();
+    if(row < 0 || row == "") return alert("You must choose a row!");
+    if(col < 0 || col == "") return alert("You must choose a column!");
+
+    App.contracts.Battleship.deployed().then(function (instance) {
+      battleshipInstance = instance;
+       return battleshipInstance.AttackOpponent(gameId,row,col);
+      }).then(function (reciept){
+        alert("attack sent, wait for your turn!");
+        $('#ShipSubAtt').prop("disabled", true);
+
+        
+      }).catch(function(err) {
+           console.error(err);
+        });
 
   },
   LeaveGame: function(event) {
@@ -318,8 +307,7 @@ App = {
           });
 
       }
-    }
-
+    }   
   },
  PAST_EVENTS : async function() {
     let lastBlock = null;
@@ -331,14 +319,15 @@ App = {
           gameAmount = events.args._amount.toNumber();
           App.contracts.Battleship.deployed().then(function (instance) {
             battleshipInstance = instance;
-             return battleshipInstance.receiveEther(_gameId,{value: web3.utils.toWei(gameAmount.toString(), 'wei')});
+             return battleshipInstance.SendEther( events.args._gameId.toNumber(),{value: web3.utils.toWei(gameAmount.toString())});
             }).then(function (reciept){
-                        
           $("#GameBoardContainer").hide();
           alert("Game Started!");
           console.log(events);
           console.log("Game Started 1");
           $("#GameBoard").show();
+          $("#shipsToPlace").text("The number of ships to place is "+numberOfShips);
+
           $("#AmountValidation").hide();
          console.log("BOARD SIZE: "+boardDim);
           App.CreateTable();
@@ -355,27 +344,51 @@ App = {
           $("#AmountValidation").show();
           $("#GameBoardTitle").text("Welcome to the game with ID "+gameId+ ", Choose an amount or accept the one that your oppenent advised. The current amount is "+gameAmount);
         } else if(events.event =="GameStarted" && (events.args._first == web3.eth.defaultAccount || events.args._second == web3.eth.defaultAccount)  && events.blockNumber != lastBlock){
-          console.log("CI SONO");
+          
+          if(events.args._first == web3.eth.defaultAccount) $('#ShipSubAtt').prop("disabled", false);
+          
+
           $("#WaitOpp").hide();
           $("#shipAttackDiv").show();
           $("#ShipDiv").hide();
           $("#ResetBoard").hide();
           $("#SubmitBoard").hide();
          lastBlock = events.blockNumber;
-        } else if(events.event =="AmountToSpend" && events.args._gameId.toNumber()== gameId && events.args._from != web3.eth.defaultAccount){
+        } else if(events.event =="AmountToSpend" && events.args._gameId.toNumber()== gameId && events.args._from != web3.eth.defaultAccount && events.blockNumber != lastBlock){
         gameAmount = events.args._amount.toNumber();
         alert("The new amount is "+ gameAmount);
           $("#GameBoardContainer").hide();
           $("#AmountValidation").show();
           $("#GameBoardTitle").text("Welcome to the game with ID "+gameId+ ", Choose an amount or accept the one that your oppenent advised. The current amount is "+gameAmount);
-          resolve('Operation completed.');
+          lastBlock = events.blockNumber;
+        } else if(events.event =="AttackOpp" && events.args._gameId.toNumber() == gameId && events.args._opponent == web3.eth.defaultAccount && events.blockNumber != lastBlock){
+          var row = events.args._row.toNumber();
+          var col = events.args._col.toNumber();
+
+          console.log("attack Row: "+events.args._row.toNumber());
+          console.log("attack Col: "+events.args._col.toNumber());
+          
+          var merkleProof = App.merkleProof(row,col);
+
+          if(board.rows[row].cells[col].textContent == "1"){
+            console.log("ship"); 
+            //App.merkleProofAttack(1,merkleProof);
+            board.rows[row].cells[col].textContent == "hit";
+          } else {console.log("fail");
+            //App.merkleProofAttack(0,merkleProof);        
+        }
+          App.CheckIfLost();  
+        $('#ShipSubAtt').prop("disabled", false);
+
+    
+          lastBlock = events.blockNumber;
         }
       });
   },
 
   CreateMerkleTree:  async function(){ //Creates merkle tree and returns the root
     var table = document.getElementById("GameTable");
-    var boardArray = [];
+    var boardArray =[];
 
     for(let i = 0; i < boardDim; i++){
       for (let j = 0; j < boardDim; j++) {
@@ -384,8 +397,12 @@ App = {
     }
     let tempBoard = [];
     for(let i = 0 ; i < boardArray.length; i++){
-      tempBoard.push(await App.sha256(boardArray[i]));
+      tempBoard.push(Web3.utils.keccak256(boardArray[i]));
+
     } 
+    console.log(tempBoard);
+
+    merkleProofMatrix.push(tempBoard);
 
     let tempArray = [];
     let stop =false
@@ -393,15 +410,56 @@ App = {
     tempArray = [];
     for(let i = 0; i < tempBoard.length; i = i + 2){
       if(i + 1 < tempBoard.length){
-        tempArray.push(await App.sha256(tempBoard[i] + tempBoard[i+1]));
+        tempArray.push(Web3.utils.keccak256(App.encodePacked(tempBoard[i],tempBoard[i+1])));
       }
     }
     console.log(tempArray);
     tempBoard = tempArray;
+    merkleProofMatrix.push(tempBoard);
     if(tempArray.length == 1 || tempArray.length == 0) stop = true;
   }
     return tempArray[0]; //root
   },
+  merkleProof: function(row,col){
+    var merkleProof = [];
+    let flatIndex = row * boardDim + col;
+    merkleProofMatrix.forEach(arr => {
+      if(arr.length > 1){
+        if(flatIndex%2 == 0){
+          merkleProof.push((arr[flatIndex+1]));
+          flatIndex = flatIndex/2;
+        } else {
+          merkleProof.push((arr[flatIndex]));
+          flatIndex = (flatIndex+1)/2;
+        }
+      }
+ 
+    });
+    console.log(merkleProof);
+    
+    return merkleProof;
+            
+  },
+  merkleProofAttack: function(attackRes,merkleProof){
+    App.contracts.Battleship.deployed().then(function (instance) {
+      battleshipInstance = instance;
+       return battleshipInstance.MerkleProofAttack(gameId,attackRes.toString(),merkleProof);
+      }).then(function (reciept){
+        console.log(reciept);  
+      }).catch(function(err) {
+           console.error(err);
+        });
+  },
+  encodePacked: function(str1,str2){
+    // Remove "0x" from str2
+    const modifiedStr2 = str2.replace("0x", "");
+    
+    // Concatenate the modified strings
+    const concatenated = str1 + modifiedStr2;
+    
+    return concatenated;
+    
+      },
   sha256:async function(message){
     const msgBuffer = new TextEncoder('utf-8').encode(message);
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);

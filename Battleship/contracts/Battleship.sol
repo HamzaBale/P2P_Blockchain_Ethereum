@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.4.22 <0.9.0;
-
 contract Battleship {
   //struct for the Game
   struct Game {
@@ -14,9 +13,11 @@ contract Battleship {
         string merkleSecond;
         uint ethFirst;
         uint ethSecond;
+        uint firstNumShips;
+        uint secondNumShips;
   }
   //event to send when game starts
-  event GameCreated(address indexed _first,address indexed _second,uint _amountTemp ,uint indexed _gameId,uint _boardDim);
+  event GameCreated(address indexed _first,address indexed _second,uint _amountTemp ,uint indexed _gameId,uint _boardDim,uint _numberOfShips);
   //event to declare the amount of money the game will have, it is used during the decision of how much money to spend in the game
   event AmountToSpend(uint indexed _gameId,uint _amount,address _from);
   //event for the amount that the game will have
@@ -27,6 +28,10 @@ contract Battleship {
   error ErrorOut(string err);
   //The game has officially started.
   event GameStarted(address indexed _first, address indexed _second);
+  //Attack the opponent
+  event AttackOpp(uint indexed _gameId ,address _attacker, address _opponent, uint _row, uint _col);
+  //event after attack
+  event AttackRes(uint _result);
 
   //Array of games
   Game[] public listOfGames;
@@ -35,8 +40,8 @@ contract Battleship {
   constructor() {
   }
 
-  function CreateGame(uint _boardDim) public{ //Game Creation, creates a game with only the first player saved.
-    listOfGames.push(Game(msg.sender,address(0),_boardDim,0,address(0),0,"","",0,0));
+  function CreateGame(uint _boardDim,uint _numberOfShips) public{ //Game Creation, creates a game with only the first player saved.
+    listOfGames.push(Game(msg.sender,address(0),_boardDim,0,address(0),0,"","",0,0,_numberOfShips,_numberOfShips));
     openGames++;
     emit UintOutput(msg.sender,listOfGames.length - 1); 
   }
@@ -72,7 +77,7 @@ contract Battleship {
       }
     }
 
-    if(found) emit GameCreated(listOfGames[returnIndex].first,listOfGames[returnIndex].second,listOfGames[returnIndex].tempAmount,returnIndex,listOfGames[returnIndex].boardDim);
+    if(found) emit GameCreated(listOfGames[returnIndex].first,listOfGames[returnIndex].second,listOfGames[returnIndex].tempAmount,returnIndex,listOfGames[returnIndex].boardDim,listOfGames[returnIndex].firstNumShips);
       
     if(!found)revert ErrorOut({err:"Not able to find an open game"});
   }
@@ -86,7 +91,7 @@ contract Battleship {
     listOfGames[_gameId].amountRequester = msg.sender;
     emit AmountToSpend(_gameId, _amount,msg.sender);
   }
-  function AcceptedAmount(uint _gameId) public {
+  function AcceptedAmount(uint _gameId) public{
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
     require(listOfGames[_gameId].amountRequester != address(0) && listOfGames[_gameId].amountRequester != msg.sender,"Something went wrong!");
@@ -95,15 +100,61 @@ contract Battleship {
     listOfGames[_gameId].amount = listOfGames[_gameId].tempAmount;
     emit AmountDecided(_gameId,listOfGames[_gameId].amount);
   }
-  function receiveEther(uint _gameId) external payable {
+  function SendEther(uint _gameId) public payable {
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
     require(msg.value > 0,"Eth are 0!");
     if(listOfGames[_gameId].first == msg.sender) listOfGames[_gameId].ethFirst = msg.value;
     else listOfGames[_gameId].ethSecond = msg.value;
     }
-    function getList() public view returns (Game[] memory){
-      return listOfGames;
+    function AttackOpponent(uint _gameId, uint _row, uint _col) public {
+    bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
+    require(condition,"Something went wrong!");
+    if(listOfGames[_gameId].first == msg.sender) emit AttackOpp(_gameId,msg.sender,listOfGames[_gameId].second,_row,_col);
+    else emit AttackOpp(_gameId,msg.sender,listOfGames[_gameId].first,_row,_col);
+    }
+
+    function MerkleProofAttack(uint _gameId,string memory _attackRes,bytes32 _attackHash,bytes32[] memory merkleProof) public returns (bytes32) {
+    bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
+    require(condition,"Something went wrong!");
+    bytes memory byteArray = abi.encodePacked(_attackHash);
+    bytes memory byteArraytemp;
+
+    bytes32 temp;
+    for(uint i = 0; i < merkleProof.length; i++){
+        byteArraytemp = abi.encodePacked(merkleProof[i]);
+        temp = keccak256(abi.encodePacked(byteArray,byteArraytemp));
+        byteArray = abi.encode(temp);
+      }
+      return temp;
+   /* if(listOfGames[_gameId].first == msg.sender) {
+      if(compare(string(abi.encode(temp)),listOfGames[_gameId].merkleFirst)) {
+        emit AttackRes(1);
+        if(compare(_attackRes,"1")) listOfGames[_gameId].firstNumShips = listOfGames[_gameId].firstNumShips - 1;
+      }
+      else revert("Merkle proof failed!");
+    }
+    else {
+          if(compare(string(abi.encode(temp)),listOfGames[_gameId].merkleSecond)) {
+            emit AttackRes(1);
+            if(compare(_attackRes,"1")) listOfGames[_gameId].firstNumShips = listOfGames[_gameId].firstNumShips - 1;
+
+          }
+      else revert("Merkle proof failed!");
+    }*/
+    
+    }
+
+
+
+     function compare(string memory str1, string memory str2) public pure returns (bool) {
+        return keccak256(abi.encodePacked(str1)) == keccak256(abi.encodePacked(str2));
+    }
+
+
+
+    function getList(uint _gameId) public view returns (Game memory){
+      return listOfGames[_gameId];
     }
 
   function SendMerkleRoot(string memory _merkleroot, uint _gameId) public{//Done at the start of the game by both players, otherwise the game don't start.

@@ -37,6 +37,10 @@
         <h4>Choose the Dimension of the board</h4>
         <input required type="number" id="BoardDim" placeholder="Board Dimension">
     </div>
+    <div id="CreateGame" class="col">
+      <h4>Choose the number of ships</h4>
+      <input required type="number" id="NumShips" placeholder="Number of ships">
+  </div>
 
       <div id="CreateGame" class="col">
         <h4>Click here to create a new game</h4>
@@ -79,6 +83,7 @@
     <div id="GameBoard" hidden >
       <h1>Welcome to the game</h1>
       <div style="margin-bottom: 1rem;" id="ShipDiv">
+      <h4 id="shipsToPlace"></h4>
       <input type="number" id="ShipRow" placeholder="Choose ship row">
       <input type="number" id="ShipCol" placeholder="Choose ship dimension">
       <input type="submit" id="ShipSub" value="Submit">
@@ -87,7 +92,7 @@
       <div style="margin-bottom: 1rem;" hidden id="shipAttackDiv">
         <input type="number" id="ShipRowAtt" placeholder="Choose ship row">
         <input type="number" id="ShipColAtt" placeholder="Choose ship col">
-        <input type="submit" id="ShipSubAtt" value="Attack">
+        <input type="submit" id="ShipSubAtt" value="Attack" disabled>
       </div>
       <div style="margin-bottom: 1rem;">
         <input type="submit" id="ResetBoard" value="Reset Board">
@@ -107,29 +112,11 @@
 
     </div>
 
-    <div id="petTemplate" style="display: none;">
-      <div class="col-sm-6 col-md-4 col-lg-3">
-        <div class="panel panel-default panel-pet">
-          <div class="panel-heading">
-            <h3 class="panel-title">Scrappy</h3>
-          </div>
-          <div class="panel-body">
-            <img alt="140x140" data-src="holder.js/140x140" class="img-rounded img-center" style="width: 100%;" src="https://animalso.com/wp-content/uploads/2017/01/Golden-Retriever_6.jpg" data-holder-rendered="true">
-            <br/><br/>
-            <strong>Breed</strong>: <span class="pet-breed">Golden Retriever</span><br/>
-            <strong>Age</strong>: <span class="pet-age">3</span><br/>
-            <strong>Location</strong>: <span class="pet-location">Warren, MI</span><br/><br/>
-            <button class="btn btn-default btn-adopt" type="button" data-id="0">Adopt</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
     <script src="js/bootstrap.min.js"></script>
-    <script src="js/web3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3-min-js@1.0.0/web3.min.js"></script>
     <script src="js/truffle-contract.js"></script>
     <script src="js/app.js"></script>
   </body>
