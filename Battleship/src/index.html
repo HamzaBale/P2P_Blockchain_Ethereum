@@ -115,9 +115,23 @@
     <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
     <!-- Include all compiled plugins (below), or include individual files as needed -->
+
     <script src="js/bootstrap.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/web3-min-js@1.0.0/web3.min.js"></script>
-    <script src="js/truffle-contract.js"></script>
+    <script src="js/web3.min.js"></script>
+   
+    <script src="js/truffle-contract.js"></script> 
+    <script type="module">
+      import web3Utils from 'https://cdn.jsdelivr.net/npm/web3-utils@3.0.0-rc.0/+esm';
+
+      window.addEventListener('DOMContentLoaded', () => {
+    window.web3Utils = web3Utils;
+
+  });
+      </script> 
+
     <script src="js/app.js"></script>
+   
+   
+    
   </body>
 </html>

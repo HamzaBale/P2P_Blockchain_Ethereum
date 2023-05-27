@@ -5,6 +5,7 @@ var boardDim = null;
 var board = null;
 var merkleProofMatrix = [];
 var numberOfShips = null;
+
 App = {
  
   web3Provider: null,
@@ -319,7 +320,7 @@ App = {
           gameAmount = events.args._amount.toNumber();
           App.contracts.Battleship.deployed().then(function (instance) {
             battleshipInstance = instance;
-             return battleshipInstance.SendEther( events.args._gameId.toNumber(),{value: web3.utils.toWei(gameAmount.toString())});
+             return battleshipInstance.SendEther( events.args._gameId.toNumber(),{value: window.web3Utils.toWei(gameAmount.toString())});
             }).then(function (reciept){
           $("#GameBoardContainer").hide();
           alert("Game Started!");
@@ -397,7 +398,7 @@ App = {
     }
     let tempBoard = [];
     for(let i = 0 ; i < boardArray.length; i++){
-      tempBoard.push(Web3.utils.keccak256(boardArray[i]));
+      tempBoard.push(window.web3Utils.keccak256(boardArray[i]));
 
     } 
     console.log(tempBoard);
@@ -410,7 +411,7 @@ App = {
     tempArray = [];
     for(let i = 0; i < tempBoard.length; i = i + 2){
       if(i + 1 < tempBoard.length){
-        tempArray.push(Web3.utils.keccak256(App.encodePacked(tempBoard[i],tempBoard[i+1])));
+        tempArray.push(window.web3Utils.keccak256(App.encodePacked(tempBoard[i],tempBoard[i+1])));
       }
     }
     console.log(tempArray);
