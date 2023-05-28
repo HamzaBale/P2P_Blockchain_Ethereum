@@ -9,8 +9,8 @@ contract Battleship {
         uint amount;
         address amountRequester;//used to don't allow a user to commit an amount and accept it all by himself.
         uint tempAmount;
-        string merkleFirst;
-        string merkleSecond;
+        bytes32 merkleFirst;
+        bytes32 merkleSecond;
         uint ethFirst;
         uint ethSecond;
         uint firstNumShips;
@@ -31,8 +31,9 @@ contract Battleship {
   //Attack the opponent
   event AttackOpp(uint indexed _gameId ,address _attacker, address _opponent, uint _row, uint _col);
   //event after attack
-  event AttackRes(uint _result);
-
+  event AttackRes(uint _result,address _attacker);
+  //event game end
+  event GameEnd(uint indexed _gameId,address _winner,address _loser,string _cause);
   //Array of games
   Game[] public listOfGames;
   //variable to keep the number of open games.
@@ -41,7 +42,7 @@ contract Battleship {
   }
 
   function CreateGame(uint _boardDim,uint _numberOfShips) public{ //Game Creation, creates a game with only the first player saved.
-    listOfGames.push(Game(msg.sender,address(0),_boardDim,0,address(0),0,"","",0,0,_numberOfShips,_numberOfShips));
+    listOfGames.push(Game(msg.sender,address(0),_boardDim,0,address(0),0,0,0,0,0,_numberOfShips,_numberOfShips));
     openGames++;
     emit UintOutput(msg.sender,listOfGames.length - 1); 
   }
@@ -114,7 +115,7 @@ contract Battleship {
     else emit AttackOpp(_gameId,msg.sender,listOfGames[_gameId].first,_row,_col);
     }
 
-    function MerkleProofAttack(uint _gameId,string memory _attackRes,bytes32 _attackHash,bytes32[] memory merkleProof) public returns (bytes32) {
+    function MerkleProofAttack(uint _gameId,string memory _attackRes,bytes32 _attackHash,bytes32[] memory merkleProof) public{
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
     bytes memory byteArray = abi.encodePacked(_attackHash);
@@ -126,22 +127,39 @@ contract Battleship {
         temp = keccak256(abi.encodePacked(byteArray,byteArraytemp));
         byteArray = abi.encode(temp);
       }
-      return temp;
-   /* if(listOfGames[_gameId].first == msg.sender) {
-      if(compare(string(abi.encode(temp)),listOfGames[_gameId].merkleFirst)) {
-        emit AttackRes(1);
+      
+    if(listOfGames[_gameId].first == msg.sender) {
+      bytes32 temp1_el = keccak256(abi.encodePacked(temp));
+      bytes32 temp2_el = keccak256(abi.encodePacked(listOfGames[_gameId].merkleFirst));
+      if(temp1_el == temp2_el ) {
+        emit AttackRes(1,listOfGames[_gameId].second);
         if(compare(_attackRes,"1")) listOfGames[_gameId].firstNumShips = listOfGames[_gameId].firstNumShips - 1;
       }
-      else revert("Merkle proof failed!");
+      else {
+        emit GameEnd(_gameId,listOfGames[_gameId].second,listOfGames[_gameId].first,"Cheater detected, the eth will be sent to the winner!");
+        payable(listOfGames[_gameId].second).transfer(listOfGames[_gameId].amount);
+      }
+      if(listOfGames[_gameId].firstNumShips <= 0) {payable(listOfGames[_gameId].second).transfer(listOfGames[_gameId].amount);
+      emit GameEnd(_gameId,listOfGames[_gameId].second,listOfGames[_gameId].first,"End Of Game!");
+      }
     }
     else {
-          if(compare(string(abi.encode(temp)),listOfGames[_gameId].merkleSecond)) {
-            emit AttackRes(1);
-            if(compare(_attackRes,"1")) listOfGames[_gameId].firstNumShips = listOfGames[_gameId].firstNumShips - 1;
+          bytes32 temp1_el = keccak256(abi.encodePacked(temp));
+          bytes32 temp2_el = keccak256(abi.encodePacked(listOfGames[_gameId].merkleSecond));
+
+          if(temp1_el == temp2_el) {
+            emit AttackRes(1,listOfGames[_gameId].first);
+            if(compare(_attackRes,"1")) listOfGames[_gameId].secondNumShips = listOfGames[_gameId].secondNumShips - 1;
 
           }
-      else revert("Merkle proof failed!");
-    }*/
+      else {
+        emit GameEnd(_gameId,listOfGames[_gameId].first,listOfGames[_gameId].second,"Cheater detected, the eth will be sent to the winner!");
+        payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount);
+      }
+      if(listOfGames[_gameId].secondNumShips <= 0) {payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount);
+      emit GameEnd(_gameId,listOfGames[_gameId].first,listOfGames[_gameId].second,"End Of Game!");
+      }
+    }
     
     }
 
@@ -157,12 +175,12 @@ contract Battleship {
       return listOfGames[_gameId];
     }
 
-  function SendMerkleRoot(string memory _merkleroot, uint _gameId) public{//Done at the start of the game by both players, otherwise the game don't start.
+  function SendMerkleRoot(bytes32 _merkleroot, uint _gameId) public{//Done at the start of the game by both players, otherwise the game don't start.
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
     if(listOfGames[_gameId].first == msg.sender) listOfGames[_gameId].merkleFirst = _merkleroot;
     else listOfGames[_gameId].merkleSecond = _merkleroot;
-    if(checkStringNotEmpty(listOfGames[_gameId].merkleSecond) && checkStringNotEmpty(listOfGames[_gameId].merkleFirst)) emit GameStarted(listOfGames[_gameId].first, listOfGames[_gameId].second);
+    if(listOfGames[_gameId].merkleSecond != 0 && listOfGames[_gameId].merkleFirst != 0) emit GameStarted(listOfGames[_gameId].first, listOfGames[_gameId].second);
   }
 
    function checkStringNotEmpty(string memory inString) public pure returns (bool) {

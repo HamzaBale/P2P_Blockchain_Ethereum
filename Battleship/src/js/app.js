@@ -59,6 +59,8 @@ App = {
     $(document).on('click', '#JoinGameIdBtn', App.JoinGameId);
     $(document).on('click', '#JoinRandGameBtn', App.JoinRandomGame);
     $(document).on('input',"#BoardDim", (event) => boardDim = event.target.value);
+    $(document).on('input',"#NumShips", (event) => numberOfShips = event.target.value);
+
     //Go Back to main menu button
     $(document).on('click', '#GoBackToMainBtn', App.LeaveGame);
     //Amount of money to send in order to decide how much to bet.
@@ -92,11 +94,9 @@ App = {
 
   },
   AmountCommit: function(){
-    console.log(gameId +"  "+ gameAmount);
     if(!gameAmount || gameId == null || gameId < 0) return alert("Game amount or game id are null!");
     return App.contracts.Battleship.deployed().then(function (instance) {
       battleshipInstance = instance;
-      console.log(gameId,parseInt(gameAmount));
        return battleshipInstance.AmountCommit(gameId,parseInt(gameAmount));
       }).then(function (reciept){
         alert("You sent the following "+ gameAmount+". You need to wait for your opponent to accept this amount!");
@@ -112,7 +112,6 @@ App = {
       battleshipInstance = instance;
        return battleshipInstance.AcceptedAmount(gameId);
       }).then(function (reciept){
-        console.log(reciept);
         $('#GameBoard').show();
         $('#AmountValidation').hide();
       }).catch(function(err) {
@@ -127,16 +126,19 @@ App = {
 
 
   CreateGame:  function(){
+
     if(!boardDim) return alert("You must choose a board dimension");
+
+    if(!numberOfShips) return alert("You must choose number of ships");
+
 
     App.contracts.Battleship.deployed().then(async function (instance) {
         battleshipInstance = instance;
-        console.log(battleshipInstance);
-         return battleshipInstance.CreateGame(boardDim);
+         return battleshipInstance.CreateGame(boardDim,numberOfShips);
         }).then(async function (reciept){
+          console.log(reciept);
           var logsArray = reciept.logs;
             gameId = logsArray[0].args._value.toNumber();
-            console.log(gameId);
             if(gameId < 0) console.error("Something went wrong, game id is negative!");
             else {
               try {
@@ -167,7 +169,6 @@ App = {
           battleshipInstance = instance;
            return battleshipInstance.JoinGame(false,inputValue);
           }).then(function (reciept){
-            console.log(reciept);
             gameId = inputValue;
             gameAmount = reciept.logs[0].args._amountTemp.toNumber();
             boardDim = reciept.logs[0].args._boardDim.toNumber();
@@ -195,7 +196,6 @@ App = {
       battleshipInstance = instance;
        return battleshipInstance.JoinGame(true,0);
       }).then(function (reciept){
-        console.log(reciept);
         gameId = reciept.logs[0].args._gameId.toNumber();
         gameAmount = reciept.logs[0].args._amountTemp.toNumber();
         boardDim = reciept.logs[0].args._boardDim.toNumber();
@@ -232,7 +232,7 @@ App = {
 
   AddShip: function(){
     var rowId = $("#ShipRow").val();
-    var colSize = $("#ShipCol").val();
+    var colSize = parseInt($("#ShipCol").val());
     if(rowId < 0 || rowId == "") return alert("You must choose a row!");
     if(colSize < 0 || colSize == "") return alert("You must choose the dimension of the ship!");
     if((colSize + 1) > numberOfShips)  return alert("Too many ships! Remaining: "+numberOfShips);
@@ -253,11 +253,9 @@ App = {
     
     App.contracts.Battleship.deployed().then(function (instance) {
       battleshipInstance = instance;
-      console.log(merkleroot);
        return battleshipInstance.SendMerkleRoot(merkleroot,gameId);
       }).then(function (reciept){
             alert("Merkle root sent to the contract succefully!");
-            console.log(reciept);
             $("#WaitOpp").show();
             $("#ShipDiv").hide();
             $("#ResetBoard").hide();
@@ -292,14 +290,13 @@ App = {
     event.preventDefault();
     var val = confirm("Are you sure you want to leave the game?");
     if (val == true) {
-      console.log("You pressed OK.");
       if(gameId == null) alert("Something went wrong, gameId is null!");
       else{
       App.contracts.Battleship.deployed().then(function (instance) {
         battleshipInstance = instance;
          return battleshipInstance.LeaveGame(gameId);
         }).then(function (reciept){
-          console.log(reciept);
+          
           $('#GameCreationContainer').show();
           $('#GameBoardContainer').hide();
           
@@ -312,9 +309,16 @@ App = {
   },
  PAST_EVENTS : async function() {
     let lastBlock = null;
-    await battleshipInstance.allEvents("",
+    await battleshipInstance.allEvents({fromBlock:'latest'},
       (err, events) => {
+   
         console.log(events);
+        console.log(events.event == "GameEnd");
+        if(events.args._gameId) {console.log(events.args._gameId.toNumber());
+          console.log(events.event == "GameEnd" && events.args._gameId.toNumber()== gameId);
+        
+        }
+
         if(events.event =="AmountDecided" && events.args._gameId.toNumber() == gameId  && events.blockNumber != lastBlock){
             
           gameAmount = events.args._amount.toNumber();
@@ -324,13 +328,12 @@ App = {
             }).then(function (reciept){
           $("#GameBoardContainer").hide();
           alert("Game Started!");
-          console.log(events);
-          console.log("Game Started 1");
+     
           $("#GameBoard").show();
           $("#shipsToPlace").text("The number of ships to place is "+numberOfShips);
 
           $("#AmountValidation").hide();
-         console.log("BOARD SIZE: "+boardDim);
+        
           App.CreateTable();
               
             }).catch(function(err) {
@@ -362,27 +365,31 @@ App = {
           $("#AmountValidation").show();
           $("#GameBoardTitle").text("Welcome to the game with ID "+gameId+ ", Choose an amount or accept the one that your oppenent advised. The current amount is "+gameAmount);
           lastBlock = events.blockNumber;
-        } else if(events.event =="AttackOpp" && events.args._gameId.toNumber() == gameId && events.args._opponent == web3.eth.defaultAccount && events.blockNumber != lastBlock){
-          var row = events.args._row.toNumber();
-          var col = events.args._col.toNumber();
-
-          console.log("attack Row: "+events.args._row.toNumber());
-          console.log("attack Col: "+events.args._col.toNumber());
+        }else if(events.event == "GameEnd" && events.args._gameId.toNumber()== gameId  && events.blockNumber != lastBlock){
+          lastBlock = events.blockNumber;
+          alert("The game ended, reason: "+events.args._cause+" The winner is "+events.args._winner);
+          $("#GameBoard").hide();
+          $('#GameCreationContainer').show();
           
+          } 
+        else if(events.event =="AttackOpp" && events.args._gameId.toNumber() == gameId && events.args._opponent == web3.eth.defaultAccount && events.blockNumber != lastBlock){
+          lastBlock = events.blockNumber;
+          
+          var row = events.args._row.toNumber();
+          var col = events.args._col.toNumber();     
+          console.log("riga "+row);
+          console.log("col "+col);
+          console.log(events)
           var merkleProof = App.merkleProof(row,col);
-
           if(board.rows[row].cells[col].textContent == "1"){
             console.log("ship"); 
-            //App.merkleProofAttack(1,merkleProof);
-            board.rows[row].cells[col].textContent == "hit";
-          } else {console.log("fail");
-            //App.merkleProofAttack(0,merkleProof);        
+            App.merkleProofAttack("1",window.web3Utils.keccak256("1").toString(),merkleProof);
+            board.rows[row].cells[col].textContent = "hit";
+          } else {
+            console.log("fail");
+            App.merkleProofAttack("0",window.web3Utils.keccak256("0").toString(),merkleProof);        
         }
-          App.CheckIfLost();  
         $('#ShipSubAtt').prop("disabled", false);
-
-    
-          lastBlock = events.blockNumber;
         }
       });
   },
@@ -401,7 +408,7 @@ App = {
       tempBoard.push(window.web3Utils.keccak256(boardArray[i]));
 
     } 
-    console.log(tempBoard);
+ 
 
     merkleProofMatrix.push(tempBoard);
 
@@ -414,7 +421,7 @@ App = {
         tempArray.push(window.web3Utils.keccak256(App.encodePacked(tempBoard[i],tempBoard[i+1])));
       }
     }
-    console.log(tempArray);
+   
     tempBoard = tempArray;
     merkleProofMatrix.push(tempBoard);
     if(tempArray.length == 1 || tempArray.length == 0) stop = true;
@@ -427,26 +434,29 @@ App = {
     merkleProofMatrix.forEach(arr => {
       if(arr.length > 1){
         if(flatIndex%2 == 0){
-          merkleProof.push((arr[flatIndex+1]));
+          merkleProof.push((arr[flatIndex+1]).toString());
           flatIndex = flatIndex/2;
         } else {
-          merkleProof.push((arr[flatIndex]));
+          merkleProof.push((arr[flatIndex]).toString());
           flatIndex = (flatIndex+1)/2;
         }
       }
  
     });
-    console.log(merkleProof);
+    
+    /**
+     * ['0x044852b2a670ade5407e78fb2863c51de9fcb96542a07186fe3aeda6bb8a116d', '0xe7300304f221d442fb23c5e3f751a86b7f574f298e3cfc3f523dd640d1e57607']
+     */
     
     return merkleProof;
             
   },
-  merkleProofAttack: function(attackRes,merkleProof){
+  merkleProofAttack: function(attackRes,hash,merkleProof){
     App.contracts.Battleship.deployed().then(function (instance) {
       battleshipInstance = instance;
-       return battleshipInstance.MerkleProofAttack(gameId,attackRes.toString(),merkleProof);
+      console.log("SONO STATO CHIAMATO!");
+       return battleshipInstance.MerkleProofAttack(gameId,attackRes.toString(),hash,merkleProof);
       }).then(function (reciept){
-        console.log(reciept);  
       }).catch(function(err) {
            console.error(err);
         });
