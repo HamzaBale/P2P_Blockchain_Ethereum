@@ -15,7 +15,11 @@ contract Battleship {
         uint ethSecond;
         uint firstNumShips;
         uint secondNumShips;
+        uint accusationTimeout;
+        address accusedPlayer;
+
   }
+
   //event to send when game starts
   event GameCreated(address indexed _first,address indexed _second,uint _amountTemp ,uint indexed _gameId,uint _boardDim,uint _numberOfShips);
   //event to declare the amount of money the game will have, it is used during the decision of how much money to spend in the game
@@ -31,9 +35,11 @@ contract Battleship {
   //Attack the opponent
   event AttackOpp(uint indexed _gameId ,address _attacker, address _opponent, uint _row, uint _col);
   //event after attack
-  event AttackRes(uint _result,address _attacker);
+  event AttackRes(string  _result,address _attacker,uint _gameId);
   //event game end
   event GameEnd(uint indexed _gameId,address _winner,address _loser,string _cause);
+  //accusation
+  event AccusationTriggered(uint indexed _gameId,address _accused);
   //Array of games
   Game[] public listOfGames;
   //variable to keep the number of open games.
@@ -42,7 +48,7 @@ contract Battleship {
   }
 
   function CreateGame(uint _boardDim,uint _numberOfShips) public{ //Game Creation, creates a game with only the first player saved.
-    listOfGames.push(Game(msg.sender,address(0),_boardDim,0,address(0),0,0,0,0,0,_numberOfShips,_numberOfShips));
+    listOfGames.push(Game(msg.sender,address(0),_boardDim,0,address(0),0,0,0,0,0,_numberOfShips,_numberOfShips,0,address(0)));
     openGames++;
     emit UintOutput(msg.sender,listOfGames.length - 1); 
   }
@@ -115,24 +121,24 @@ contract Battleship {
     else emit AttackOpp(_gameId,msg.sender,listOfGames[_gameId].first,_row,_col);
     }
 
+
+
     function MerkleProofAttack(uint _gameId,string memory _attackRes,bytes32 _attackHash,bytes32[] memory merkleProof) public{
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
-    bytes memory byteArray = abi.encodePacked(_attackHash);
     bytes memory byteArraytemp;
 
-    bytes32 temp;
+    bytes32 temp = _attackHash;
     for(uint i = 0; i < merkleProof.length; i++){
-        byteArraytemp = abi.encodePacked(merkleProof[i]);
-        temp = keccak256(abi.encodePacked(byteArray,byteArraytemp));
-        byteArray = abi.encode(temp);
+        byteArraytemp = abi.encodePacked(merkleProof[i] ^ temp);
+        temp = keccak256(byteArraytemp);
       }
       
     if(listOfGames[_gameId].first == msg.sender) {
       bytes32 temp1_el = keccak256(abi.encodePacked(temp));
       bytes32 temp2_el = keccak256(abi.encodePacked(listOfGames[_gameId].merkleFirst));
       if(temp1_el == temp2_el ) {
-        emit AttackRes(1,listOfGames[_gameId].second);
+        emit AttackRes(_attackRes,listOfGames[_gameId].second,_gameId);
         if(compare(_attackRes,"1")) listOfGames[_gameId].firstNumShips = listOfGames[_gameId].firstNumShips - 1;
       }
       else {
@@ -148,7 +154,7 @@ contract Battleship {
           bytes32 temp2_el = keccak256(abi.encodePacked(listOfGames[_gameId].merkleSecond));
 
           if(temp1_el == temp2_el) {
-            emit AttackRes(1,listOfGames[_gameId].first);
+            emit AttackRes(_attackRes,listOfGames[_gameId].first,_gameId);
             if(compare(_attackRes,"1")) listOfGames[_gameId].secondNumShips = listOfGames[_gameId].secondNumShips - 1;
 
           }
@@ -169,6 +175,27 @@ contract Battleship {
         return keccak256(abi.encodePacked(str1)) == keccak256(abi.encodePacked(str2));
     }
 
+   function triggerAccusation(uint _gameId) public {        
+    bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
+    require(condition,"Something went wrong!");
+    address accusedPlayer = address(0);
+    if(listOfGames[_gameId].second == msg.sender) accusedPlayer = listOfGames[_gameId].first;
+    else  accusedPlayer = listOfGames[_gameId].second;
+    
+    if(listOfGames[_gameId].accusationTimeout != 0){
+        if(block.number <= listOfGames[_gameId].accusationTimeout){
+          if(listOfGames[_gameId].accusedPlayer == listOfGames[_gameId].second) payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount);
+          else payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount);
+          emit GameEnd(_gameId,listOfGames[_gameId].first,listOfGames[_gameId].second,"Timeout, the game ended because someone didn't play!");
+        } else emit AccusationTriggered(_gameId,accusedPlayer);
+    } else {
+      listOfGames[_gameId].accusationTimeout = block.number + 5;
+ 
+      listOfGames[_gameId].accusedPlayer = accusedPlayer;
+      emit AccusationTriggered(_gameId,accusedPlayer);
+    }
+ 
+    }
 
 
     function getList(uint _gameId) public view returns (Game memory){

@@ -80,12 +80,12 @@
       GAME BOARD
     -->
 
-    <div id="GameBoard" hidden >
+    <div id="GameBoard" hidden class="col">
       <h1>Welcome to the game</h1>
       <div style="margin-bottom: 1rem;" id="ShipDiv">
       <h4 id="shipsToPlace"></h4>
       <input type="number" id="ShipRow" placeholder="Choose ship row">
-      <input type="number" id="ShipCol" placeholder="Choose ship dimension">
+      <input type="number" id="ShipCol" placeholder="Choose ship col">
       <input type="submit" id="ShipSub" value="Submit">
       </div>
       <h1 id="WaitOpp" hidden>Waiting for your oppenent to start!</h1>
@@ -97,9 +97,17 @@
       <div style="margin-bottom: 1rem;">
         <input type="submit" id="ResetBoard" value="Reset Board">
       </div>
+      <div id="GameTableDiv" class="row">
+      <h4>Click this button to notify the oppenent in case he's not playing for a while</h4>
+      <input type="submit" id="NotifyOpp" value="Notify">
       
       <table id="GameTable" style="margin-bottom: 1rem;">
       </table>
+      </div>
+      <div id="EnemyTableDiv" class="row" hidden>
+        <h4>Enemy Board:</h4>
+      <table  id="EnemyTable" style="margin-bottom: 1rem;" >
+      </table></div>
       <input type="submit" id="SubmitBoard" value="Submit Board">
       
 
