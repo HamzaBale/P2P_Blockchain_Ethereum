@@ -39,7 +39,7 @@ contract Battleship {
   //event game end
   event GameEnd(uint indexed _gameId,address _winner,address _loser,string _cause);
   //accusation
-  event AccusationTriggered(uint indexed _gameId,address _accused);
+  event AccusationTriggered(uint indexed _gameId,address _accused,address _accuser);
   //Array of games
   Game[] public listOfGames;
   //variable to keep the number of open games.
@@ -117,13 +117,15 @@ contract Battleship {
     function AttackOpponent(uint _gameId, uint _row, uint _col) public {
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
+    listOfGames[_gameId].accusedPlayer = address(0);
+    listOfGames[_gameId].accusationTimeout = 0;
     if(listOfGames[_gameId].first == msg.sender) emit AttackOpp(_gameId,msg.sender,listOfGames[_gameId].second,_row,_col);
     else emit AttackOpp(_gameId,msg.sender,listOfGames[_gameId].first,_row,_col);
     }
 
 
 
-    function MerkleProofAttack(uint _gameId,string memory _attackRes,bytes32 _attackHash,bytes32[] memory merkleProof) public{
+    function MerkleProofAttack(uint _gameId,string memory _attackRes,bytes32 _attackHash,bytes32[] memory merkleProof) payable public{
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
     bytes memory byteArraytemp;
@@ -143,9 +145,9 @@ contract Battleship {
       }
       else {
         emit GameEnd(_gameId,listOfGames[_gameId].second,listOfGames[_gameId].first,"Cheater detected, the eth will be sent to the winner!");
-        payable(listOfGames[_gameId].second).transfer(listOfGames[_gameId].amount);
+        payable(listOfGames[_gameId].second).transfer(listOfGames[_gameId].amount * 2);
       }
-      if(listOfGames[_gameId].firstNumShips <= 0) {payable(listOfGames[_gameId].second).transfer(listOfGames[_gameId].amount);
+      if(listOfGames[_gameId].firstNumShips <= 0) {payable(listOfGames[_gameId].second).transfer(listOfGames[_gameId].amount * 2);
       emit GameEnd(_gameId,listOfGames[_gameId].second,listOfGames[_gameId].first,"End Of Game!");
       }
     }
@@ -160,9 +162,10 @@ contract Battleship {
           }
       else {
         emit GameEnd(_gameId,listOfGames[_gameId].first,listOfGames[_gameId].second,"Cheater detected, the eth will be sent to the winner!");
-        payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount);
+        payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount * 2);
       }
-      if(listOfGames[_gameId].secondNumShips <= 0) {payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount);
+      if(listOfGames[_gameId].secondNumShips <= 0) {
+        payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount * 2);
       emit GameEnd(_gameId,listOfGames[_gameId].first,listOfGames[_gameId].second,"End Of Game!");
       }
     }
@@ -183,20 +186,22 @@ contract Battleship {
     else  accusedPlayer = listOfGames[_gameId].second;
     
     if(listOfGames[_gameId].accusationTimeout != 0){
-        if(block.number <= listOfGames[_gameId].accusationTimeout){
-          if(listOfGames[_gameId].accusedPlayer == listOfGames[_gameId].second) payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount);
-          else payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount);
+        if(block.number >= listOfGames[_gameId].accusationTimeout){
+          if(listOfGames[_gameId].accusedPlayer == listOfGames[_gameId].second) payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount * 2);
+          else payable(listOfGames[_gameId].second).transfer(listOfGames[_gameId].amount);
           emit GameEnd(_gameId,listOfGames[_gameId].first,listOfGames[_gameId].second,"Timeout, the game ended because someone didn't play!");
-        } else emit AccusationTriggered(_gameId,accusedPlayer);
+        } else emit AccusationTriggered(_gameId,accusedPlayer,msg.sender);
     } else {
       listOfGames[_gameId].accusationTimeout = block.number + 5;
  
       listOfGames[_gameId].accusedPlayer = accusedPlayer;
-      emit AccusationTriggered(_gameId,accusedPlayer);
+      emit AccusationTriggered(_gameId,accusedPlayer,msg.sender);
     }
  
+    }    
+    function balance()public view returns(uint){
+      return address(this).balance;
     }
-
 
     function getList(uint _gameId) public view returns (Game memory){
       return listOfGames[_gameId];
@@ -219,10 +224,6 @@ contract Battleship {
     listOfGames[_gameId].first = address(0);
     openGames--;
   }
-
-
-  //TO DO START GAME, CONTROLLO CHE AMOUNT è STATO DECISO
-
 
   function randGenerator() private view returns (bytes32){
     //Helps with random number generation
