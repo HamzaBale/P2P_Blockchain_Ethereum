@@ -51,7 +51,8 @@ contract Battleship {
 
   //GAS USED: 144797
   //TOTAL PRICE = 0.00289594 eth
-  function CreateGame(uint _boardDim,uint _numberOfShips) public{ //Game Creation, creates a game with only the first player saved.
+  //Game Creation, creates a game by setting the number of ships and the board dimension.
+  function CreateGame(uint _boardDim,uint _numberOfShips) public{ 
     listOfGames.push(Game(msg.sender,address(0),_boardDim,0,address(0),0,0,0,0,0,_numberOfShips,_numberOfShips,0,address(0),msg.sender));
     openGames++;
     emit UintOutput(msg.sender,listOfGames.length - 1);
@@ -60,6 +61,7 @@ contract Battleship {
   //GAS USED FOR RANDOM JOIN: 90415
   //GAS USED FOR JOINING SPECIFIC GAME: 64370
   //TOTAL PRICE = 0.0018083 -- 0.0012874
+  //Function to join a game, can be random or with an index.
   function JoinGame(bool _isRand,uint _gameIndex) public {//Join a game.
     if(openGames <= 0) revert ErrorOut({err:"No open games"});
     
@@ -98,6 +100,7 @@ contract Battleship {
 
   //GAS USED: 75033
   //TOTAL PRICE = 0.00150066 eth
+  //Used to commit a certain amount of eth, after commit phase the opponent can accept this amount or commit a new one.
   function AmountCommit(uint _gameId,uint _amount) public{
     if(listOfGames[_gameId].first == address(0)) revert ErrorOut({err:"The creator id is null"});
     require(_amount > 0 && _gameId < listOfGames.length,"The amount or the gameId are null!");
@@ -109,17 +112,19 @@ contract Battleship {
   }
   //GAS USED: 58563
   //TOTAL PRICE = 0.00117126 eth
+  //Accept the current commited amount
   function AcceptedAmount(uint _gameId) public{
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
     require(listOfGames[_gameId].amountRequester != address(0) && listOfGames[_gameId].amountRequester != msg.sender,"Something went wrong!");
     if(listOfGames[_gameId].amount != 0) revert ErrorOut({err:"The amount for this game has already been decided!"});
     if(listOfGames[_gameId].tempAmount == 0) revert ErrorOut({err:"The amount for this game wasn't decided yet!"});
-    listOfGames[_gameId].amount = listOfGames[_gameId].tempAmount;
+    listOfGames[_gameId].amount = listOfGames[_gameId].tempAmount;//tempAmount is used to store the latest commited amount.
     emit AmountDecided(_gameId,listOfGames[_gameId].amount);
   }
   //GAS USED: 51737
   //TOTAL PRICE =0.00103474eth
+  //Send eth from externally owned accounts to contract
   function SendEther(uint _gameId) public payable {
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
@@ -129,6 +134,7 @@ contract Battleship {
     }
     //GAS USED: 36734
     //TOTAL PRICE = 0.00103474eth
+    //Attack the opponent passing a row and a column
     function AttackOpponent(uint _gameId, uint _row, uint _col) public {
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
@@ -136,7 +142,9 @@ contract Battleship {
     listOfGames[_gameId].accusedPlayer = address(0);
     listOfGames[_gameId].accusationTimeout = 0;
     if(listOfGames[_gameId].first == msg.sender) {
+      //triggers event that will be received by the opponent
       emit AttackOpp(_gameId,msg.sender,listOfGames[_gameId].second,_row,_col);
+      //turn passes to the opponent
       listOfGames[_gameId].playerTurn = listOfGames[_gameId].second;
       }
     else {
@@ -145,16 +153,28 @@ contract Battleship {
     }
     }
 
+     //GAS USED: 54397
+    //TOTAL PRICE = 0.00103474eth
+    function SendMerkleRoot(bytes32 _merkleroot, uint _gameId) public{//Done at the start of the game by both players, otherwise the game don't start.
+      bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
+      require(condition,"Something went wrong!");
+      if(listOfGames[_gameId].first == msg.sender) listOfGames[_gameId].merkleFirst = _merkleroot;
+      else listOfGames[_gameId].merkleSecond = _merkleroot;
+      if(listOfGames[_gameId].merkleSecond != 0 && listOfGames[_gameId].merkleFirst != 0) emit GameStarted(listOfGames[_gameId].first, listOfGames[_gameId].second);
+    }
+
+
     //GAS USED: 41678
     //TOTAL PRICE = 0.00103474eth
     //GAS USED FOR END GAME: 55256
+    //Merkle proof that is called after an attack
     function MerkleProofAttack(uint _gameId,string memory _attackRes,bytes32 _attackHash,bytes32[] memory merkleProof) payable public{
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
     bytes memory byteArraytemp;
 
     bytes32 temp = _attackHash;
-    for(uint i = 0; i < merkleProof.length; i++){
+    for(uint i = 0; i < merkleProof.length; i++){//in the variable temp at the end of the loop, we will have the merkle root calculated from the merkle proof.
         byteArraytemp = abi.encodePacked(merkleProof[i] ^ temp);
         temp = keccak256(byteArraytemp);
       }
@@ -166,7 +186,7 @@ contract Battleship {
         emit AttackRes(_attackRes,listOfGames[_gameId].second,_gameId);
         if(compare(_attackRes,"1")) listOfGames[_gameId].firstNumShips = listOfGames[_gameId].firstNumShips - 1;
       }
-      else {
+      else { //if the root calculated is not equal to the one stored, then the player is cheating and the game ends
         emit GameEnd(_gameId,listOfGames[_gameId].second,listOfGames[_gameId].first,"Cheater detected, the eth will be sent to the winner!");
         payable(listOfGames[_gameId].second).transfer(listOfGames[_gameId].amount * 2);
       }
@@ -174,7 +194,7 @@ contract Battleship {
       emit GameEnd(_gameId,listOfGames[_gameId].second,listOfGames[_gameId].first,"End Of Game!");
       }
     }
-    else {
+    else { //Same as above just for the second player
           bytes32 temp1_el = keccak256(abi.encodePacked(temp));
           bytes32 temp2_el = keccak256(abi.encodePacked(listOfGames[_gameId].merkleSecond));
 
@@ -195,14 +215,13 @@ contract Battleship {
     
     }
 
-
-
      function compare(string memory str1, string memory str2) public pure returns (bool) {
         return keccak256(abi.encodePacked(str1)) == keccak256(abi.encodePacked(str2));
     }
 
    //GAS USED: 76349
    //TOTAL PRICE: 0.00152698 eth
+   //Notify the opponent to play, this can trigger the timeout event and the end of the game.
    function triggerAccusation(uint _gameId) public {        
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
@@ -211,9 +230,10 @@ contract Battleship {
     else  accusedPlayer = listOfGames[_gameId].second;
     
     if(listOfGames[_gameId].accusationTimeout != 0){
-        if(block.number >= listOfGames[_gameId].accusationTimeout){
+        if(block.number >= listOfGames[_gameId].accusationTimeout){ //more than 5 blocks have been mined after the notify has been triggered
           if(listOfGames[_gameId].accusedPlayer == listOfGames[_gameId].second) payable(listOfGames[_gameId].first).transfer(listOfGames[_gameId].amount * 2);
           else payable(listOfGames[_gameId].second).transfer(listOfGames[_gameId].amount);
+          //the game ends
           emit GameEnd(_gameId,listOfGames[_gameId].first,listOfGames[_gameId].second,"Timeout, the game ended because someone didn't play!");
         } else emit AccusationTriggered(_gameId,accusedPlayer,msg.sender);
     } else {
@@ -225,15 +245,7 @@ contract Battleship {
  
     }    
 
-  //GAS USED: 54397
-  //TOTAL PRICE = 0.00103474eth
-  function SendMerkleRoot(bytes32 _merkleroot, uint _gameId) public{//Done at the start of the game by both players, otherwise the game don't start.
-    bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
-    require(condition,"Something went wrong!");
-    if(listOfGames[_gameId].first == msg.sender) listOfGames[_gameId].merkleFirst = _merkleroot;
-    else listOfGames[_gameId].merkleSecond = _merkleroot;
-    if(listOfGames[_gameId].merkleSecond != 0 && listOfGames[_gameId].merkleFirst != 0) emit GameStarted(listOfGames[_gameId].first, listOfGames[_gameId].second);
-  }
+ 
 
    function checkStringNotEmpty(string memory inString) public pure returns (bool) {
         return bytes(inString).length != 0;
