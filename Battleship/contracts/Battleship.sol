@@ -17,7 +17,7 @@ contract Battleship {
         uint secondNumShips;
         uint accusationTimeout;
         address accusedPlayer;
-
+        address playerTurn;
   }
 
   //event to send when game starts
@@ -47,11 +47,19 @@ contract Battleship {
   constructor() {
   }
 
+  //GAS PRICE FOR ALL FUNCTIONS: 20000000000
+
+  //GAS USED: 144797
+  //TOTAL PRICE = 0.00289594 eth
   function CreateGame(uint _boardDim,uint _numberOfShips) public{ //Game Creation, creates a game with only the first player saved.
-    listOfGames.push(Game(msg.sender,address(0),_boardDim,0,address(0),0,0,0,0,0,_numberOfShips,_numberOfShips,0,address(0)));
+    listOfGames.push(Game(msg.sender,address(0),_boardDim,0,address(0),0,0,0,0,0,_numberOfShips,_numberOfShips,0,address(0),msg.sender));
     openGames++;
-    emit UintOutput(msg.sender,listOfGames.length - 1); 
+    emit UintOutput(msg.sender,listOfGames.length - 1);
   }
+
+  //GAS USED FOR RANDOM JOIN: 90415
+  //GAS USED FOR JOINING SPECIFIC GAME: 64370
+  //TOTAL PRICE = 0.0018083 -- 0.0012874
   function JoinGame(bool _isRand,uint _gameIndex) public {//Join a game.
     if(openGames <= 0) revert ErrorOut({err:"No open games"});
     
@@ -61,14 +69,13 @@ contract Battleship {
       require(_gameIndex < listOfGames.length,"Something went wrong!");
       returnIndex = _gameIndex;
       if(listOfGames[returnIndex].first == address(0)) revert ErrorOut({err:"You can't join this game, because there's no player here!"});
-      //if(listOfGames[returnIndex].first == msg.sender) revert("User can't access his own game!");
+      //if(listOfGames[returnIndex].first == msg.sender) revert("User can't access his own game!"); commented just for testing purposes
       if(listOfGames[returnIndex].second != address(0)) revert ErrorOut({err:"Game is not Free"});
       listOfGames[(returnIndex)].second = msg.sender;
       openGames--;
       found = true;
     }
     //can be joined randomly, the contract will find a random game from the open ones.
-
     if(_isRand && !found){
       bytes32 rand = randGenerator();
       uint index = uint(rand) % openGames + 1;
@@ -89,6 +96,8 @@ contract Battleship {
     if(!found)revert ErrorOut({err:"Not able to find an open game"});
   }
 
+  //GAS USED: 75033
+  //TOTAL PRICE = 0.00150066 eth
   function AmountCommit(uint _gameId,uint _amount) public{
     if(listOfGames[_gameId].first == address(0)) revert ErrorOut({err:"The creator id is null"});
     require(_amount > 0 && _gameId < listOfGames.length,"The amount or the gameId are null!");
@@ -98,6 +107,8 @@ contract Battleship {
     listOfGames[_gameId].amountRequester = msg.sender;
     emit AmountToSpend(_gameId, _amount,msg.sender);
   }
+  //GAS USED: 58563
+  //TOTAL PRICE = 0.00117126 eth
   function AcceptedAmount(uint _gameId) public{
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
@@ -107,6 +118,8 @@ contract Battleship {
     listOfGames[_gameId].amount = listOfGames[_gameId].tempAmount;
     emit AmountDecided(_gameId,listOfGames[_gameId].amount);
   }
+  //GAS USED: 51737
+  //TOTAL PRICE =0.00103474eth
   function SendEther(uint _gameId) public payable {
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
@@ -114,17 +127,27 @@ contract Battleship {
     if(listOfGames[_gameId].first == msg.sender) listOfGames[_gameId].ethFirst = msg.value;
     else listOfGames[_gameId].ethSecond = msg.value;
     }
+    //GAS USED: 36734
+    //TOTAL PRICE = 0.00103474eth
     function AttackOpponent(uint _gameId, uint _row, uint _col) public {
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
+    require(listOfGames[_gameId].playerTurn == msg.sender);
     listOfGames[_gameId].accusedPlayer = address(0);
     listOfGames[_gameId].accusationTimeout = 0;
-    if(listOfGames[_gameId].first == msg.sender) emit AttackOpp(_gameId,msg.sender,listOfGames[_gameId].second,_row,_col);
-    else emit AttackOpp(_gameId,msg.sender,listOfGames[_gameId].first,_row,_col);
+    if(listOfGames[_gameId].first == msg.sender) {
+      emit AttackOpp(_gameId,msg.sender,listOfGames[_gameId].second,_row,_col);
+      listOfGames[_gameId].playerTurn = listOfGames[_gameId].second;
+      }
+    else {
+      emit AttackOpp(_gameId,msg.sender,listOfGames[_gameId].first,_row,_col);
+      listOfGames[_gameId].playerTurn = listOfGames[_gameId].first;
+    }
     }
 
-
-
+    //GAS USED: 41678
+    //TOTAL PRICE = 0.00103474eth
+    //GAS USED FOR END GAME: 55256
     function MerkleProofAttack(uint _gameId,string memory _attackRes,bytes32 _attackHash,bytes32[] memory merkleProof) payable public{
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
@@ -178,6 +201,8 @@ contract Battleship {
         return keccak256(abi.encodePacked(str1)) == keccak256(abi.encodePacked(str2));
     }
 
+   //GAS USED: 76349
+   //TOTAL PRICE: 0.00152698 eth
    function triggerAccusation(uint _gameId) public {        
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
@@ -199,14 +224,9 @@ contract Battleship {
     }
  
     }    
-    function balance()public view returns(uint){
-      return address(this).balance;
-    }
 
-    function getList(uint _gameId) public view returns (Game memory){
-      return listOfGames[_gameId];
-    }
-
+  //GAS USED: 54397
+  //TOTAL PRICE = 0.00103474eth
   function SendMerkleRoot(bytes32 _merkleroot, uint _gameId) public{//Done at the start of the game by both players, otherwise the game don't start.
     bool condition = _gameId < listOfGames.length && listOfGames[_gameId].first != address(0) && listOfGames[_gameId].second != address(0) && (listOfGames[_gameId].first == msg.sender || listOfGames[_gameId].second == msg.sender);
     require(condition,"Something went wrong!");
@@ -219,6 +239,8 @@ contract Battleship {
         return bytes(inString).length != 0;
     }
 
+  //GAS USED: 31668
+  //TOTAL PRICE = 0.00063336
   function LeaveGame(uint _gameId) public { //you can leave the game only if you are the creator and before the game has started.
     require(_gameId < listOfGames.length && listOfGames[_gameId].first == msg.sender && listOfGames[_gameId].second == address(0),"You can't leave the game if you're not the owner!");
     listOfGames[_gameId].first = address(0);

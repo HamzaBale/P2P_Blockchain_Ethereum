@@ -1,0 +1,23 @@
+gas price = 0.00000002 eth
+
+CREATE GAME:GAS USED: 144797 - TOTAL PRICE = 0.00289594 eth
+JOIN GAME RANDOM: GAS USED: 90415 - TOTAL PRICE = 0.0018083 eth
+JOIN GAME ID: GAS USED: 64370 - TOTAL PRICE= 0.0012874 eth
+DECIDE AMOUNT (AmountCommit): GAS USED: 75033- TOTAL PRICE= 0.00150066 eth
+ACCEPT AMOUNT (AcceptedAmount): GAS USED: 58563- TOTAL PRICE= 0.00117126 eth
+SEND ETH TO CONTRACT (SendEther): GAS USED: 51737 - TOTAL PRICE= 0.00103474 eth
+
+for board 8x8 with 1 ship and all misses:
+ATTACK OPPONENT (AttackOpponent): GAS USED: 36734 - TOTAL PRICE = 0.00103474 eth
+MERKLE PROOF ATTACK (MerkleProofAttack): GAS USED: 41678- TOTAL PRICE = 0.00103474 eth
+
+attack opponent * 64 = 36734 * 64 = 2350976 = TOTAL PRICE = 0.04701952 eth
+merkle proof * 63 = 41678 * 63 = 2625714 = TOTAL PRICE = 0.05251428 eth
+
+
+
+///
+A function that can be exploited is the accusation function, a player can "notify" the opponent 5 times in a row
+without giving it the time to respond, in this way he can win the amount bet.
+To fix this we can save the latest block number in which the notify transaction was seen, if the block number is equal
+to the new block + 1 - 2 - 3 then the notify function is reverted. This can work in a production environment where blocks are mined quickly.

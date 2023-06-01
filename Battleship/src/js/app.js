@@ -5,6 +5,7 @@ var boardDim = null;
 var board = null;
 var merkleProofMatrix = [];
 var numberOfShips = null;
+var initialNumberOfShips = null;
 var attackedRow = null;
 var attackedCol = null;
 App = {
@@ -60,7 +61,7 @@ App = {
     $(document).on('click', '#JoinGameIdBtn', App.JoinGameId);
     $(document).on('click', '#JoinRandGameBtn', App.JoinRandomGame);
     $(document).on('input', "#BoardDim", (event) => boardDim = event.target.value);
-    $(document).on('input', "#NumShips", (event) => numberOfShips = event.target.value);
+    $(document).on('input', "#NumShips", (event) => {numberOfShips = event.target.value;initialNumberOfShips = numberOfShips;});
 
     //Go Back to main menu button
     $(document).on('click', '#GoBackToMainBtn', App.LeaveGame);
@@ -70,7 +71,7 @@ App = {
     $(document).on('click', '#AcceptAmount', App.AcceptAmount);
     //To set new amount of money
     $(document).on('click', '#NewAmountBtn', App.AmountCommit);
-    $(document).on('input', '#NewAmount', () => { gameAmount = $('#NewAmount').val();});
+    $(document).on('input', '#NewAmount', () => { gameAmount = $('#NewAmount').val(); });
 
     //Insert ship in table
     $(document).on('click', "#ShipSub", App.AddShip);
@@ -80,12 +81,9 @@ App = {
     $(document).on('click', "#ShipSubAtt", App.SubmitAttack);
     //Notify opponent
     $(document).on('click', "#NotifyOpp", App.NotifyOpponent);
-
-
-
-
-
     $('#CreateGameBtn').prop("disabled", true);
+
+ 
 
   },
 
@@ -105,7 +103,11 @@ App = {
       battleshipInstance = instance;
       return battleshipInstance.AmountCommit(gameId, window.web3Utils.toWei(gameAmount.toString()));
     }).then(function (reciept) {
-      alert("You sent the following: " +(gameAmount) + " eth. You need to wait for your opponent to accept this amount!");
+      alert("You sent the following: " + (gameAmount) + " eth. You need to wait for your opponent to accept this amount!");
+      $('#NewAmountBtn').prop("disabled", true);
+      $('#AcceptAmount').prop("disabled", true);
+
+
     }).catch(function (err) {
       console.error(err);
       throw new Error(err);
@@ -181,12 +183,12 @@ App = {
         gameAmount = reciept.logs[0].args._amountTemp.toNumber();
         boardDim = reciept.logs[0].args._boardDim.toNumber();
         numberOfShips = reciept.logs[0].args._numberOfShips.toNumber();
-
-        alert("You joined the game, the amount of ETH was set to " + window.web3Utils.fromWei(gameAmount.toString())+" eth");
+        initialNumberOfShips = numberOfShips;
+        alert("You joined the game, the amount of ETH was set to " + window.web3Utils.fromWei(gameAmount.toString()) + " eth");
 
         $('#GameCreationContainer').hide();
         $('#AmountValidation').show();
-        $("#GameBoardTitle").text("Welcome to the game with ID " + gameId + " Choose an amount or accept the one that your oppenent advised. The current amount is " + window.web3Utils.fromWei(gameAmount.toString())+" eth");
+        $("#GameBoardTitle").text("Welcome to the game with ID " + gameId + " Choose an amount or accept the one that your oppenent advised. The current amount is " + window.web3Utils.fromWei(gameAmount.toString()) + " eth");
 
         App.PAST_EVENTS();
 
@@ -208,11 +210,12 @@ App = {
       gameAmount = reciept.logs[0].args._amountTemp.toNumber();
       boardDim = reciept.logs[0].args._boardDim.toNumber();
       numberOfShips = reciept.logs[0].args._numberOfShips.toNumber();
-      alert("You joined the game, the amount of ETH was set to " + window.web3Utils.fromWei(gameAmount.toString())+" eth");
+      initialNumberOfShips = numberOfShips;
+      alert("You joined the game, the amount of ETH was set to " + window.web3Utils.fromWei(gameAmount.toString()) + " eth");
 
       $('#GameCreationContainer').hide();
       $('#AmountValidation').show();
-      $("#GameBoardTitle").text("Welcome to the game number " + gameId + ", Choose an amount or accept the one that your oppenent advised. The current amount is " + window.web3Utils.fromWei(gameAmount.toString())+" eth");
+      $("#GameBoardTitle").text("Welcome to the game number " + gameId + ", Choose an amount or accept the one that your oppenent advised. The current amount is " + window.web3Utils.fromWei(gameAmount.toString()) + " eth");
       App.PAST_EVENTS();
 
     }).catch(function (err) {
@@ -235,6 +238,24 @@ App = {
         cell.textContent = 0;
       }
     }
+    $(document).ready(function () {
+      $('#GameTable td').click(function () {
+        var cellIndex = $(this).index();
+        var rowIndex = $(this).parent().index();
+        console.log(cellIndex);
+        $("#ShipRow").val(rowIndex)
+        $("#ShipCol").val(cellIndex)
+      });
+    });
+    $(document).ready(function () {
+      $('#EnemyTable td').click(function () {
+        var cellIndex = $(this).index();
+        var rowIndex = $(this).parent().index();
+        console.log(cellIndex);
+        $("#ShipRowAtt").val(rowIndex)
+        $("#ShipColAtt").val(cellIndex)
+      });
+    });
 
 
   },
@@ -259,10 +280,12 @@ App = {
         table.rows[i].cells[j].textContent = 0;
       }
     }
+    numberOfShips = initialNumberOfShips;
+    $("#shipsToPlace").text("The number of ships to place is " + numberOfShips);
+
   },
   SubmitBoard: async function () {
     let merkleroot = await App.CreateMerkleTree();
-    console.log("Merkle Root: " + merkleroot);
     App.contracts.Battleship.deployed().then(function (instance) {
       battleshipInstance = instance;
       return battleshipInstance.SendMerkleRoot(merkleroot, gameId);
@@ -286,12 +309,12 @@ App = {
     if (row < 0 || row == "") return alert("You must choose a row!");
     if (col < 0 || col == "") return alert("You must choose a column!");
     if (col > (boardDim - 1) || row > (boardDim - 1)) return alert("column or row out of bounds!");
-    if (enemyTable.rows[row].cells[col].textContent == "miss" || enemyTable.rows[row].cells[col].textContent == "hit") return alert("You've already attacked this cell!");
+    if (enemyTable.rows[row].cells[col].style.backgroundColor == "white") return alert("You've already attacked this cell!");
 
 
     App.contracts.Battleship.deployed().then(function (instance) {
       battleshipInstance = instance;
-      return battleshipInstance.AttackOpponent(gameId, row, col);
+      return battleshipInstance.AttackOpponent(gameId, (row),(col));
     }).then(function (reciept) {
       attackedCol = col;
       attackedRow = row;
@@ -332,8 +355,7 @@ App = {
     let lastDate = Date.now();
     await battleshipInstance.allEvents(
       (err, events) => {
-        console.log(events);
-        
+
         if (events.event == "AmountDecided" && events.args._gameId.toNumber() == gameId && events.blockNumber != lastBlock) {
           lastBlock = events.blockNumber;
           gameAmount = events.args._amount.toNumber();
@@ -342,7 +364,6 @@ App = {
             return battleshipInstance.SendEther(events.args._gameId.toNumber(), { value: (gameAmount) });
           }).then(function (reciept) {
             $("#GameBoardContainer").hide();
-            alert("Game Started!");
 
             $("#GameBoard").show();
             $("#shipsToPlace").text("The number of ships to place is " + numberOfShips);
@@ -358,10 +379,12 @@ App = {
         } else if (events.event == "AmountToSpend" && events.args._gameId.toNumber() == gameId && events.args._from != web3.eth.defaultAccount) {
           lastBlock = events.blockNumber;
           gameAmount = events.args._amount.toNumber();
-          alert("The new amount is " + window.web3Utils.fromWei(gameAmount.toString())+" eth");
+          alert("The new amount is " + window.web3Utils.fromWei(gameAmount.toString()) + " eth");
           $("#GameBoardContainer").hide();
           $("#AmountValidation").show();
-          $("#GameBoardTitle").text("Welcome to the game with ID " + gameId + ", Choose an amount or accept the one that your oppenent advised. The current amount is " + window.web3Utils.fromWei(gameAmount.toString())+" eth");
+          $("#GameBoardTitle").text("Welcome to the game with ID " + gameId + ", Choose an amount or accept the one that your oppenent advised. The current amount is " + window.web3Utils.fromWei(gameAmount.toString()) + " eth");
+          $('#NewAmountBtn').prop("disabled", false);
+          $('#AcceptAmount').prop("disabled", false);
         } else if (events.event == "GameStarted" && (events.args._first == web3.eth.defaultAccount || events.args._second == web3.eth.defaultAccount) && events.blockNumber != lastBlock) {
           lastBlock = events.blockNumber;
 
@@ -377,14 +400,14 @@ App = {
           $("#ShipDiv").hide();
           $("#ResetBoard").hide();
           $("#SubmitBoard").hide();
-          
+
         } else if (events.event == "AmountToSpend" && events.args._gameId.toNumber() == gameId && events.args._from != web3.eth.defaultAccount && events.blockNumber != lastBlock) {
           lastBlock = events.blockNumber;
           gameAmount = events.args._amount.toNumber();
-          alert("The new amount is " + window.web3Utils.fromWei(gameAmount.toString())+" eth");
+          alert("The new amount is " + window.web3Utils.fromWei(gameAmount.toString()) + " eth");
           $("#GameBoardContainer").hide();
           $("#AmountValidation").show();
-          $("#GameBoardTitle").text("Welcome to the game with ID " + gameId + ", Choose an amount or accept the one that your oppenent advised. The current amount is " + window.web3Utils.fromWei(gameAmount.toString())+" eth");
+          $("#GameBoardTitle").text("Welcome to the game with ID " + gameId + ", Choose an amount or accept the one that your oppenent advised. The current amount is " + window.web3Utils.fromWei(gameAmount.toString()) + " eth");
         } else if (events.event == "GameEnd" && events.args._gameId.toNumber() == gameId) {
           alert("The game ended, reason: " + events.args._cause + " The winner is " + events.args._winner);
           App.resetGame();
@@ -393,8 +416,8 @@ App = {
         else if (events.event == "AttackRes" && events.args._gameId.toNumber() == gameId && events.args._attacker == web3.eth.defaultAccount && events.blockNumber != lastBlock) {
           lastBlock = events.blockNumber;
           if (events.args._result == "1") {
-            enemyTable.rows[attackedRow].cells[attackedCol].textContent = "hit";
-          } else enemyTable.rows[attackedRow].cells[attackedCol].textContent = "miss";
+            enemyTable.rows[attackedRow].cells[attackedCol].style.backgroundColor = "green";
+          } else enemyTable.rows[attackedRow].cells[attackedCol].style.backgroundColor = "red";
         }
         else if (events.event == "AttackOpp" && events.args._gameId.toNumber() == gameId && events.args._opponent == web3.eth.defaultAccount && events.blockNumber != lastBlock) {
 
@@ -506,12 +529,14 @@ App = {
       console.error(err);
     });
   },
+
   xor: function (a, b) {
     var BN = window.web3Utils.BN;
     let c = new BN(a.slice(2), 16).xor(new BN(b.slice(2), 16)).toString(16);
     result = "0x" + c.padStart(64, "0");
     return result;
   },
+
 
 
 
